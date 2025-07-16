@@ -1,0 +1,33 @@
+<RCC>
+    <qresource prefix="/">
+        <file>main.qml</file>
+        <file>assets/Dashboard.svg</file>
+        <file>assets/Vector 70.svg</file>
+        <file>assets/LowBeamLightOn.svg</file>
+        <file>assets/Vector 1.svg</file>
+        <file>assets/Vector 2.svg</file>
+        <file>assets/SeatBeltOff.svg</file>
+        <file>assets/DoorOpen.svg</file>
+        <file>assets/HighBeamLightOff.svg</file>
+        <file>assets/FogLightOff.svg</file>
+        <file>assets/TirePressOK.svg</file>
+        <file>assets/fuel.svg</file>
+        <file>assets/road.svg</file>
+        <file>assets/speedometer.svg</file>
+        <file>Gauge.qml</file>
+        <file>assets/background.png</file>
+        <file>assets/background.svg</file>
+        <file>assets/needle.svg</file>
+        <file>assets/tickmark.svg</file>
+        <file>assets/newcar.svg</file>
+        <file>assets/Car.svg</file>
+        <file>assets/HighBeamLightOn.svg</file>
+        <file>assets/LowBeamLightOff.svg</file>
+        <file>assets/FogLightOn.svg</file>
+        <file>assets/SeatBeltOn.svg</file>
+        <file>assets/TirePressNotOK.svg</file>
+        <file>assets/DoorClosed.svg</file>
+        <file>assets/EngineOff.svg</file>
+        <file>assets/EngineOn.svg</file>
+    </qresource>
+</RCC>
