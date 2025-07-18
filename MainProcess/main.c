@@ -10,6 +10,8 @@
 #include <linux/can/raw.h>
 #include <stdint.h>
 #include <time.h>
+#include <errno.h>
+#include <pthread.h>
 
 #define SOCKET_PATH "/tmp/gui_socket"
 
@@ -25,19 +27,30 @@ typedef struct {
     uint8_t arrived_distance;
     uint8_t remain_distance;
     uint8_t avg_speed;
-    uint8_t engine_temperature;
     uint8_t transmission_gear;
-    uint8_t speed_limit;
+    uint8_t reserved1;
+    uint8_t reserved2;
     float gps_lat;
     float gps_lon;
 } __attribute__((packed)) VehicleStatus;
 
+typedef struct  {
+    uint8_t air_condition_temperature;
+    uint8_t speed_limit;
+}controlData_t;
 
-VehicleStatus *vehicle_status;
+typedef struct {
+    VehicleStatus vehicle_status;
+    controlData_t control_data;
+}DataTransfer_t;
+
+DataTransfer_t data_transfer;
+
 
 // Định nghĩa CAN ID
 #define PACKET_HEADER_ID 0x024
 #define PACKET_DATA_ID 0x025
+#define AIRCONDITION_SPEEDLIMIT_CAN_ID 0x030
 
 // Struct để lưu trữ dữ liệu nhận được
 typedef struct {
@@ -147,25 +160,60 @@ int process_data_packet(struct can_frame *frame) {
 }
 
 // Hàm in thông tin VehicleStatus
-void print_vehicle_status(const VehicleStatus *status) {
+void print_vehicle_status(const VehicleStatus status) {
     printf("\n==== VEHICLE STATUS ====\n");
-    printf("Engine Status: %s\n", status->engine_status ? "ON" : "OFF");
-    printf("Light Status: %s\n", status->light_status ? "ON" : "OFF");
-    printf("Tire Pressure: %s\n", status->tire_pressure ? "OK" : "ERROR");
-    printf("Door Status: %s\n", status->door_status ? "OPEN" : "CLOSED");
-    printf("Seat Belt: %s\n", status->seat_belt_status ? "FASTENED" : "UNFASTENED");
-    printf("Battery Level: %d%%\n", status->battery_level);
-    printf("Speed: %d km/h\n", status->speed);
-    printf("Arrived Distance: %d km\n", status->arrived_distance);
-    printf("Remain Distance: %d km\n", status->remain_distance);
-    printf("Average Speed: %d km/h\n", status->avg_speed);
-    printf("Engine Temperature: %d°C\n", status->engine_temperature);
-    printf("Transmission Gear: %d\n", status->transmission_gear);
-    printf("Speed Limit: %d km/h\n", status->speed_limit);
-    printf("GPS Latitude: %.6f\n", status->gps_lat);
-    printf("GPS Longitude: %.6f\n", status->gps_lon);
+    printf("Engine Status: %s\n", status.engine_status ? "ON" : "OFF");
+    printf("Light Status: %s\n", status.light_status ? "ON" : "OFF");
+    printf("Tire Pressure: %s\n", status.tire_pressure ? "OK" : "ERROR");
+    printf("Door Status: %s\n", status.door_status ? "OPEN" : "CLOSED");
+    printf("Seat Belt: %s\n", status.seat_belt_status ? "FASTENED" : "UNFASTENED");
+    printf("Battery Level: %d%%\n", status.battery_level);
+    printf("Speed: %d km/h\n", status.speed);
+    printf("Arrived Distance: %d km\n", status.arrived_distance);
+    printf("Remain Distance: %d km\n", status.remain_distance);
+    printf("Average Speed: %d km/h\n", status.avg_speed);
+    printf("Transmission Gear: %d\n", status.transmission_gear);
+    printf("GPS Latitude: %.6f\n", status.gps_lat);
+    printf("GPS Longitude: %.6f\n", status.gps_lon);
     printf("========================\n\n");
 }
+
+typedef struct {
+    int unix_fd;
+    int can_fd;
+} ThreadArgs;
+
+void* air_condition_thread(void* arg) {
+    ThreadArgs *args = (ThreadArgs*)arg;
+    int unix_fd = args->unix_fd;
+    int can_fd = args->can_fd;
+    while (1) {
+        controlData_t controlData;
+        ssize_t recv_bytes = recvfrom(unix_fd, &controlData, sizeof(controlData_t), 0, NULL, NULL);
+        if (recv_bytes > 0) {
+
+            printf("Received air condition temperature (thread): %d\n", controlData.air_condition_temperature);
+            // Cập nhật biến toàn cục
+            data_transfer.control_data.air_condition_temperature = controlData.air_condition_temperature;
+            data_transfer.control_data.speed_limit = controlData.speed_limit;
+            // Gửi qua CAN
+            struct can_frame air_frame;
+            memset(&air_frame, 0, sizeof(air_frame));
+            air_frame.can_id = AIRCONDITION_SPEEDLIMIT_CAN_ID;
+            air_frame.can_dlc = 2;
+            air_frame.data[0] = (uint8_t)data_transfer.control_data.air_condition_temperature;
+            air_frame.data[1] = (uint8_t)data_transfer.control_data.speed_limit;
+            if (write(can_fd, &air_frame, sizeof(air_frame)) < 0) {
+                perror("CAN write airConditionTemperature (thread)");
+            } else {
+                printf("Sent airConditionTemperature to CAN (thread): %d\n", controlData.air_condition_temperature);
+            }
+        }
+    }
+    return NULL;
+}
+
+
 
 // Hàm chính
 int main(int argc, char *argv[]) {
@@ -207,9 +255,20 @@ int main(int argc, char *argv[]) {
     addr.sun_family = AF_UNIX;
     strncpy(addr.sun_path, SOCKET_PATH, sizeof(addr.sun_path) - 1);
 
-    memset(&addr, 0, sizeof(addr));
-    addr.sun_family = AF_UNIX;
-    strncpy(addr.sun_path, SOCKET_PATH, sizeof(addr.sun_path) - 1);
+    struct sockaddr_un test_addr;
+    memset(&test_addr, 0, sizeof(test_addr));
+    test_addr.sun_family = AF_UNIX;
+    strncpy(test_addr.sun_path, "/tmp/test_socket", sizeof(test_addr.sun_path) - 1);
+    unlink("/tmp/test_socket");
+    bind(unix_fd, (struct sockaddr *)&test_addr, sizeof(test_addr));
+
+    ThreadArgs thread_args;
+    thread_args.unix_fd = unix_fd;
+    thread_args.can_fd = sockfd;
+    pthread_t tid;
+    pthread_create(&tid, NULL, air_condition_thread, &thread_args);
+    data_transfer.control_data.air_condition_temperature = 25; // Giá trị mặc định
+    data_transfer.control_data.speed_limit = 80; // Giá trị mặc định
 
     //------------------------------------ Vòng lặp chính để nhận dữ liệu------------------------------------
     while (1) {
@@ -238,14 +297,16 @@ int main(int argc, char *argv[]) {
                         // Đã nhận đủ dữ liệu
                         if (packet_receiver.message_type == 0x01 && 
                             packet_receiver.data_size == sizeof(VehicleStatus)) {
-                            
-                            vehicle_status = (VehicleStatus*)packet_receiver.data_buffer;
-                            print_vehicle_status(vehicle_status);
-                            int sent = sendto(unix_fd, vehicle_status, sizeof(VehicleStatus), 0, (struct sockaddr *)&addr, sizeof(addr));
+                            // Chuyển đổi dữ liệu nhận được thành VehicleStatus
+                            memcpy(&data_transfer.vehicle_status, packet_receiver.data_buffer, sizeof(VehicleStatus));
+                            print_vehicle_status(data_transfer.vehicle_status);
+                            // Gửi vehicle status qua Unix socket
+                            int sent = sendto(unix_fd, &data_transfer, sizeof(DataTransfer_t), 0, 
+                                            (struct sockaddr *)&addr, sizeof(addr));
                             if (sent < 0) {
                                 perror("sendto");
                             } else {
-                                printf("Sent speed: %d\n", vehicle_status->speed);
+                                printf("Sent vehicle status to GUI\n");
                             }
                         }
                         
@@ -259,7 +320,6 @@ int main(int argc, char *argv[]) {
                 printf("Unknown CAN ID: 0x%X\n", frame.can_id);
                 break;
         }
-
         
     }
     
