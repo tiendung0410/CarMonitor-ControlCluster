@@ -29,6 +29,14 @@ ApplicationWindow {
         }
     }
 
+    function airConditionColor(value){
+        if(value < 26 ){
+            return "green"
+        }else{
+            return "yellow"
+        }
+    }
+
     function temperature_color(value){
         if(value < 85 ){
             return "green"
@@ -186,6 +194,8 @@ ApplicationWindow {
           Speed Limit Label
         */
 
+        
+
         Rectangle{
             id:speedLimit
             width: 130
@@ -214,7 +224,49 @@ ApplicationWindow {
             }
         }
 
+        Image {
+            id: speed_Limit_Add_Button
+            property bool indicator: false
+            width: 40
+            height: 40
+            source: "qrc:/assets/Add.svg"
+            fillMode: Image.PreserveAspectFit
+            anchors{
+                right: speedLimit.left
+                rightMargin: 20
+                verticalCenter: speedLimit.verticalCenter
+            }
+            Behavior on indicator { NumberAnimation { duration: 300 }}
+            MouseArea {
+                anchors.fill: parent
+                onClicked: {
+                    canReceiver.speedLimitAdd()
+                    canReceiver.UpdateData()
+                }
+            }
+        }
 
+        Image {
+            id: speed_Limit_Substract_Button
+            property bool indicator: false
+            width: 40
+            height: 40
+            source: "qrc:/assets/Substract.svg"
+            fillMode: Image.PreserveAspectFit
+            anchors{
+                left: speedLimit.right
+                leftMargin: 20
+                verticalCenter: speedLimit.verticalCenter
+            }
+            Behavior on indicator { NumberAnimation { duration: 300 }}
+            MouseArea {
+                anchors.fill: parent
+                onClicked: {
+                    canReceiver.speedLimitSubtract()
+                    canReceiver.UpdateData()
+                }
+            }
+        }
 
         Image {
             id:car
@@ -259,14 +311,33 @@ ApplicationWindow {
 
             RowLayout{
                 spacing: 3
+
+                Image {
+                    id: air_Condition_Add_Button
+                    property bool indicator: false
+                    width: 40                // Đặt lại kích thước mong muốn
+                    height: 40
+                    source: "qrc:/assets/Add.svg"
+                    fillMode: Image.PreserveAspectFit
+                    Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft  // Căn chỉnh trong RowLayout
+                    Behavior on indicator { NumberAnimation { duration: 300 }}
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: {
+                            canReceiver.airConditionTemperatureAdd()
+                            canReceiver.UpdateData()
+                        }
+                    }
+                }
+
                 Label{
-                    text: canReceiver.engine_temperature.toFixed(0)
+                    text: canReceiver.air_condition_temperature.toFixed(0)
                     font.pixelSize: 32
                     font.family: "Inter"
                     font.bold: Font.Normal
                     font.capitalization: Font.AllUppercase
                     color: "#FFFFFF"
-                    Layout.preferredWidth: 80  // Cố định width cho 3 chữ số
+                    Layout.preferredWidth: 50  // Cố định width cho 3 chữ số
                     horizontalAlignment: Text.AlignRight
                 }
 
@@ -287,37 +358,59 @@ ApplicationWindow {
                 Rectangle{
                     width: 20
                     height: 15
-                    color: canReceiver.engine_temperature.toFixed(0) > 70 ? temperature_color(canReceiver.engine_temperature.toFixed(0)) : "#01E6DC"
+                    color: canReceiver.air_condition_temperature.toFixed(0) > 16 ? airConditionColor(canReceiver.air_condition_temperature) : "#333333"
                 }
                 Rectangle{
                     width: 20
                     height: 15
-                    color: canReceiver.engine_temperature.toFixed(0) > 78.25 ? temperature_color(canReceiver.engine_temperature.toFixed(0)) : "#01E6DC"
+                    color: canReceiver.air_condition_temperature.toFixed(0) > 19 ? airConditionColor(canReceiver.air_condition_temperature) : "#333333"
                 }
                 Rectangle{
                     width: 20
                     height: 15
-                    color: canReceiver.engine_temperature.toFixed(0) > 86.5 ? temperature_color(canReceiver.engine_temperature.toFixed(0)) : "#01E6DC"
+                    color: canReceiver.air_condition_temperature.toFixed(0) > 22 ? airConditionColor(canReceiver.air_condition_temperature) : "#333333"
                 }
                 Rectangle{
                     width: 20
                     height: 15
-                    color: canReceiver.engine_temperature.toFixed(0) > 95 ? temperature_color(canReceiver.engine_temperature.toFixed(0)) : "#01E6DC"
+                    color: canReceiver.air_condition_temperature.toFixed(0) > 25 ? airConditionColor(canReceiver.air_condition_temperature) : "#333333"
                 }
                 Rectangle{
                     width: 20
                     height: 15
-                    color: canReceiver.engine_temperature.toFixed(0) > 103.25 ? temperature_color(canReceiver.engine_temperature.toFixed(0)) : "#01E6DC"
+                    color: canReceiver.air_condition_temperature.toFixed(0) > 28 ? airConditionColor(canReceiver.air_condition_temperature) : "#333333"
                 }
                 Rectangle{
                     width: 20
                     height: 15
-                    color: canReceiver.engine_temperature.toFixed(0) > 111.5 ? temperature_color(canReceiver.engine_temperature.toFixed(0)) : "#01E6DC"
+                    color: canReceiver.air_condition_temperature.toFixed(0) > 31 ? airConditionColor(canReceiver.air_condition_temperature) : "#333333"
                 }
                 Rectangle{
                     width: 20
                     height: 15
-                    color: canReceiver.engine_temperature.toFixed(0) > 118 ? temperature_color(canReceiver.engine_temperature.toFixed(0)) : "#01E6DC"
+                    color: canReceiver.air_condition_temperature.toFixed(0) > 34 ? airConditionColor(canReceiver.air_condition_temperature) : "#333333"
+                }
+            }
+
+            RowLayout{
+                spacing: 3
+
+                Image {
+                    id: air_Condition_Sub_Button
+                    property bool indicator: false
+                    width: 40                // Đặt lại kích thước mong muốn
+                    height: 40
+                    source: "qrc:/assets/Substract.svg"
+                    fillMode: Image.PreserveAspectFit
+                    Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft  // Căn chỉnh trong RowLayout
+                    Behavior on indicator { NumberAnimation { duration: 300 }}
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: {
+                            canReceiver.airConditionTemperatureSubtract()
+                            canReceiver.UpdateData()
+                        }
+                    }
                 }
             }
 

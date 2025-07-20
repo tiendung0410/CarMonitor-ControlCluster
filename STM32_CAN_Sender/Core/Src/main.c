@@ -9,9 +9,10 @@
 /* USER CODE BEGIN Includes */
 /* USER CODE END Includes */
 
+
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-// �?nh nghia struct VehicleStatus
+// �?nh nghia struct VehicleStatus
 typedef struct {
     uint8_t engine_status;
     uint8_t light_status;
@@ -23,9 +24,9 @@ typedef struct {
     uint8_t arrived_distance;
     uint8_t remain_distance;
     uint8_t avg_speed;
-    uint8_t engine_temperature;
     uint8_t transmission_gear;
-    uint8_t speed_limit;
+    uint8_t reserved1;
+    uint8_t reserved2;
     float gps_lat;
     float gps_lon;
 } __attribute__((packed)) VehicleStatus;
@@ -49,6 +50,7 @@ UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
 VehicleStatus vehicle_data;
+uint8_t air_condition_temp = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -64,6 +66,8 @@ void InitVehicleData(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 CAN_TxHeaderTypeDef TxMsg;
+CAN_RxHeaderTypeDef RxHeader;
+uint8_t RxData[8];
 uint32_t pu32Mailbox;
 
 volatile uint32_t can_status = 0;
@@ -80,69 +84,46 @@ void InitVehicleData(void) {
     vehicle_data.arrived_distance = 25;    // 25 km
     vehicle_data.remain_distance = 150;    // 150 km
     vehicle_data.avg_speed = 55;           // 55 km/h
-    vehicle_data.engine_temperature = 90;  // 90�C
     vehicle_data.transmission_gear = 4;    // Gear 4
-    vehicle_data.speed_limit = 80;         // 80 km/h
+    vehicle_data.reserved1 = 0;       
+    vehicle_data.reserved2 = 0; 
     vehicle_data.gps_lat = 21.0285f;       // Hanoi latitude
     vehicle_data.gps_lon = 105.8542f;      // Hanoi longitude
 }
 
 void RandomVehicleData(void) {
-    // Seed random number generator (ch? c?n g?i 1 l?n trong main)
-    // srand(time(NULL));
-    
-    // Engine status: 0 = OFF, 1 = ON
+
     vehicle_data.engine_status = rand() % 2;
-    
-    // Light status: 0 = OFF, 1 = ON
-    vehicle_data.light_status = rand() % 2;
-    
-    // Tire pressure: 0 = Low, 1 = Normal, 2 = High
+
+    vehicle_data.light_status = rand() % 4;
+
     vehicle_data.tire_pressure = rand() % 3;
-    
-    // Door status: 0 = All closed, 1 = Some open
+
     vehicle_data.door_status = rand() % 2;
-    
-    // Seat belt: 0 = Not fastened, 1 = Fastened
+
     vehicle_data.seat_belt_status = rand() % 2;
-    
-    // Battery level: 0-100%
+
     vehicle_data.battery_level = rand() % 101;
-    
-    // Speed: 0-120 km/h
+
     vehicle_data.speed = rand() % 121;
-    
-    // Arrived distance: 0-500 km
+
     vehicle_data.arrived_distance = rand() % 501;
-    
-    // Remain distance: 0-1000 km
+
     vehicle_data.remain_distance = rand() % 1001;
-    
-    // Average speed: 20-100 km/h
+
     vehicle_data.avg_speed = 20 + (rand() % 81);
-    
-    // Engine temperature: 60-120�C
-    vehicle_data.engine_temperature = 60 + (rand() % 61);
-    
-    // Transmission gear: 1-6
+
     vehicle_data.transmission_gear = 1 + (rand() % 6);
     
-    // Speed limit: 30, 50, 60, 80, 100 km/h
-    int speed_limits[] = {30, 50, 60, 80, 100};
-    vehicle_data.speed_limit = speed_limits[rand() % 5];
-    
-    // GPS coordinates around Hanoi area
-    // Latitude: 20.9 - 21.1
     vehicle_data.gps_lat = 20.9f + ((float)(rand() % 201) / 1000.0f);
-    
-    // Longitude: 105.7 - 105.9
+
     vehicle_data.gps_lon = 105.7f + ((float)(rand() % 201) / 1000.0f);
 }
 
 uint8_t *data_ptr;
 uint32_t data_size;
 uint8_t frame_count;
-// H�m g?i struct qua CAN (chia nh? th�nh nhi?u frame)
+// H�m g?i struct qua CAN (chia nh? th�nh nhi?u frame)
 void SendVehicleStatus(void) {
     data_ptr = (uint8_t*)&vehicle_data;
     data_size = sizeof(VehicleStatus);
@@ -175,6 +156,16 @@ void SendVehicleStatus(void) {
         HAL_Delay(10);
     }
 }
+
+// void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
+// {
+//     HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &RxHeader, RxData);
+
+//     // Kiểm tra CAN ID của air condition
+//     if (RxHeader.StdId == 0x030 && RxHeader.DLC >= 1) {
+//         air_condition_temp = RxData[0];
+//     }
+// }
 /* USER CODE END 0 */
 
 /**
@@ -204,26 +195,54 @@ int main(void)
   MX_GPIO_Init();
   MX_CAN_Init();
   MX_USART1_UART_Init();
+	
+
   /* USER CODE BEGIN 2 */
   TxMsg.DLC = 8;
   TxMsg.IDE = CAN_ID_STD;
   TxMsg.RTR = CAN_RTR_DATA;
   TxMsg.TransmitGlobalTime = DISABLE;
   
+  // Cấu hình CAN filter để nhận message air condition
+  CAN_FilterTypeDef canfilterconfig;
+
+  // Gộp filter cho các ID 0x024, 0x025, 0x030 bằng cách dùng ID mask
+  canfilterconfig.FilterActivation = CAN_FILTER_ENABLE;
+  canfilterconfig.FilterBank = 0;
+  canfilterconfig.FilterFIFOAssignment = CAN_RX_FIFO0;
+  canfilterconfig.FilterIdHigh = 0x000 << 5;
+  canfilterconfig.FilterIdLow = 0x0000;
+  canfilterconfig.FilterMaskIdHigh = 0x000 << 5;
+  canfilterconfig.FilterMaskIdLow = 0x0000;
+  canfilterconfig.FilterMode = CAN_FILTERMODE_IDMASK;
+  canfilterconfig.FilterScale = CAN_FILTERSCALE_32BIT;
+
+  HAL_CAN_ConfigFilter(&hcan, &canfilterconfig);
+
   HAL_CAN_Start(&hcan); // start CAN
-  InitVehicleData(); // Kh?i t?o d? li?u m?u
+  InitVehicleData();
+  srand(HAL_GetTick());
   /* USER CODE END 2 */
-	srand(HAL_GetTick());
+	
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    
-    
-    // G?i struct qua CAN
-		RandomVehicleData();
+    // Gửi struct qua CAN
+    RandomVehicleData();
     SendVehicleStatus();
-    
+
+    // Polling CAN RX FIFO0
+    if (HAL_CAN_GetRxFifoFillLevel(&hcan, CAN_RX_FIFO0) > 0) {
+        CAN_RxHeaderTypeDef RxHeader;
+        uint8_t RxData[8];
+        if (HAL_CAN_GetRxMessage(&hcan, CAN_RX_FIFO0, &RxHeader, RxData) == HAL_OK) {
+            if (RxHeader.StdId == 0x030 && RxHeader.DLC >= 1) {
+                air_condition_temp = RxData[0];
+            }
+        }
+    }
+
     HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_5);
     HAL_Delay(1000);
     /* USER CODE END WHILE */
@@ -367,6 +386,7 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
 /* USER CODE END 4 */
 
 /**
