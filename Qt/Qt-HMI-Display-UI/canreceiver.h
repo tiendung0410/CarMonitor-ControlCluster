@@ -19,7 +19,7 @@ struct __attribute__((packed)) VehicleStatus {
     uint8_t speed;
     uint8_t arrived_distance;
     uint8_t remain_distance;
-    uint8_t avg_speed;
+    uint8_t drived_time;
     uint8_t transmission_gear;
     uint8_t reserved1;
     uint8_t reserved2;
@@ -48,7 +48,7 @@ class CanReceiver : public QObject {
     Q_PROPERTY(int battery_level READ batteryLevel NOTIFY dataUpdated)
     Q_PROPERTY(int arrived_distance READ arrivedDistance NOTIFY dataUpdated)
     Q_PROPERTY(int remain_distance READ remainDistance NOTIFY dataUpdated)
-    Q_PROPERTY(int avg_speed READ avgSpeed NOTIFY dataUpdated)
+    Q_PROPERTY(int drived_time READ drivedTime NOTIFY dataUpdated)
     Q_PROPERTY(int transmission_gear READ transmissionGear NOTIFY dataUpdated)
     Q_PROPERTY(float gps_lat READ gpsLat NOTIFY dataUpdated)
     Q_PROPERTY(float gps_lon READ gpsLon NOTIFY dataUpdated)
@@ -66,7 +66,7 @@ public:
     int batteryLevel() const { return m_batteryLevel; }
     int arrivedDistance() const { return m_arrivedDistance; }
     int remainDistance() const { return m_remainDistance; }
-    int avgSpeed() const { return m_avgSpeed; }
+    int drivedTime() const { return m_drivedTime; }
     int transmissionGear() const { return m_transmissionGear; }
     float gpsLat() const { return m_gpsLat; }
     float gpsLon() const { return m_gpsLon; }
@@ -104,7 +104,7 @@ private:
     int m_batteryLevel;
     int m_arrivedDistance;
     int m_remainDistance;
-    int m_avgSpeed;
+    int m_drivedTime;
     int m_transmissionGear;
     float m_gpsLat;
     float m_gpsLon;
