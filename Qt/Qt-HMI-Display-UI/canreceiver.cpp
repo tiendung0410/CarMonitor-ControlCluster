@@ -10,7 +10,7 @@
 CanReceiver::CanReceiver(QObject *parent)
     : QObject(parent), m_speed(0), m_engineStatus(0), m_lightStatus(0),
       m_tirePressure(0), m_doorStatus(0), m_seatBeltStatus(0), m_batteryLevel(0),
-      m_arrivedDistance(0), m_remainDistance(0), m_avgSpeed(0),
+      m_arrivedDistance(0), m_remainDistance(0), m_drivedTime(0),
       m_transmissionGear(0),
       m_gpsLat(0.0), m_gpsLon(0.0), m_airConditionTemperature(0),m_speedLimit(0)
 {
@@ -53,7 +53,7 @@ void CanReceiver::readPendingDatagram() {
         m_speed = dataTransfer.status.speed;
         m_arrivedDistance = dataTransfer.status.arrived_distance;
         m_remainDistance = dataTransfer.status.remain_distance;
-        m_avgSpeed = dataTransfer.status.avg_speed;
+        m_drivedTime = dataTransfer.status.drived_time;
         m_transmissionGear = dataTransfer.status.transmission_gear;
         m_gpsLat = dataTransfer.status.gps_lat;
         m_gpsLon = dataTransfer.status.gps_lon;

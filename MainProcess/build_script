@@ -1,0 +1,2 @@
+
+gcc GatewayProcess.c -o GatewayProcess -lmosquitto -ljson-c -pthread
