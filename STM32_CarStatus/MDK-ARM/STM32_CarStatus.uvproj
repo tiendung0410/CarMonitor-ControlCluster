@@ -163,7 +163,7 @@
             <RunIndependent>0</RunIndependent>
             <UpdateFlashBeforeDebugging>1</UpdateFlashBeforeDebugging>
             <Capability>1</Capability>
-            <DriverSelection>4107</DriverSelection>
+            <DriverSelection>4103</DriverSelection>
           </Flash1>
           <bUseTDR>1</bUseTDR>
           <Flash2>STLink\ST-LINKIII-KEIL_SWO.dll</Flash2>
@@ -1137,6 +1137,11 @@
               <FileName>LiquidCrystal_I2C.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Lib\LiquidCrystal_I2C.c</FilePath>
+            </File>
+            <File>
+              <FileName>DFPLAYER.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Lib\DFPLAYER.c</FilePath>
             </File>
           </Files>
         </Group>

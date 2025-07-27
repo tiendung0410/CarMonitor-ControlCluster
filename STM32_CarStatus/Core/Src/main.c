@@ -28,6 +28,7 @@
 #include <math.h>
 #include "gps.h"
 #include "LiquidCrystal_I2C.h"
+#include "DFPLAYER.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -59,6 +60,8 @@ typedef enum {
     air_condition_change,
     speed_limit_change
 } WarningCode_t;
+
+
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -67,6 +70,19 @@ typedef enum {
 #define PACKET_HEADER_ID 0x024
 #define PACKET_DATA_ID 0x025
 #define M_PI 3.14159265358979323846
+
+#define EXCEED_SPEED_SOUND            1
+#define LOW_BATTERY_SOUND             2
+#define LOW_TIRE_PRESSURE_SOUND       3
+#define DOOR_OPEN_SOUND               4
+#define SEAT_BELT_OPEN_SOUND          5
+#define AIR_CONDITION_CHANGE_SOUND    6
+#define SPEED_LIMIT_CHANGE_SOUND      7
+
+#define P_Gear 0
+#define R_Gear 1
+#define N_Gear 2
+#define D_Gear 3
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -107,6 +123,11 @@ uint32_t pu32Mailbox;
 uint8_t *data_ptr;
 uint32_t data_size;
 uint8_t frame_count;
+
+volatile uint16_t adc_buffer[4]= {0, 0, 0, 0}; // ADC buffer for joystick and battery
+
+LiquidCrystal_I2C hlcd;
+DFPLAYER_Name mp3;
 
 uint8_t can_send_flag = 0;
 
@@ -408,7 +429,7 @@ static void MX_ADC1_Init(void)
   */
   hadc1.Instance = ADC1;
   hadc1.Init.ScanConvMode = ADC_SCAN_ENABLE;
-  hadc1.Init.ContinuousConvMode = DISABLE;
+  hadc1.Init.ContinuousConvMode = ENABLE;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
@@ -860,7 +881,7 @@ void CAN_Handler(void const * argument)
             }
         }
     }
-    osDelay(100); // Delay to avoid busy loop
+    osDelay(50); // Delay to avoid busy loop
   }
   /* USER CODE END CAN_Handler */
 }
@@ -875,7 +896,7 @@ void CAN_Handler(void const * argument)
 void Input_Handler(void const * argument)
 {
   /* USER CODE BEGIN Input_Handler */
-  uint16_t adc_buffer[4];
+  HAL_ADCEx_Calibration_Start(&hadc1);
   HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_buffer, 4);
 
   //UART2 receive callback
@@ -901,83 +922,73 @@ void Input_Handler(void const * argument)
       {
         can_send_flag=1;
         vehicle_data.tire_pressure = (vehicle_data.tire_pressure + 1) % 2; // Toggle tire pressure status
-        if(vehicle_data.tire_pressure == 0) {
-          warning_notify_flag =1;
-          warning_code = low_tire_pressure; // Set warning code for low tire pressure
-        } 
       }
 
       if(!HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_9))
       {
         can_send_flag=1;
         vehicle_data.door_status = (vehicle_data.door_status + 1) % 2; // Toggle door status
-        if(vehicle_data.door_status == 0) {
-          warning_notify_flag = 1; // Set warning flag for door open
-          warning_code = door_open; // Set warning code
-        }
       }
       
       if(!HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_8))
       {
         can_send_flag=1;
         vehicle_data.seat_belt_status = (vehicle_data.seat_belt_status + 1) % 2; // Toggle seat belt status
-        if(vehicle_data.seat_belt_status == 1) {
-          warning_notify_flag = 0; // Reset warning flag for seat belt fastened
-          warning_code = seat_belt_open; // Set warning code
-        }
       }
     
       // Read ADC values 
-      if(vehicle_data.speed != adc_buffer[0] * 250 / 4095) {
-          can_send_flag = 1; // Set flag to send vehicle status
-          vehicle_data.speed = adc_buffer[0] * 250 / 4095; // Assuming 0-4095 ADC range
-          if(vehicle_data.speed > speed_limit) {
-            warning_notify_flag = 1; // Set warning flag for speed limit exceeded
-            warning_code = exceed_speed; // Set warning code
+      if(vehicle_data.transmission_gear == D_Gear || vehicle_data.transmission_gear == R_Gear) {
+          if(abs(adc_buffer[0] - vehicle_data.speed) > 20) {
+              can_send_flag = 1; // Set flag to send vehicle status
+              vehicle_data.speed = adc_buffer[0] * 250 / 4095; // Assuming 0-4095 ADC range
           }
+      } else {
+          vehicle_data.speed = 0; // Reset speed if not in D or R gear
       }
-      
-      if(vehicle_data.battery_level != adc_buffer[1] * 100 / 4095) {
+
+
+      if(abs(vehicle_data.battery_level *4095 / 100 - adc_buffer[1]) > 20) {
           can_send_flag = 1; // Set flag to send vehicle status
           vehicle_data.battery_level = adc_buffer[1] * 100 / 4095; // Assuming 0-4095 ADC range
-          if(vehicle_data.battery_level < 20) {
-              warning_notify_flag = 1; // Set warning flag for low battery
-              warning_code = low_battery; // Set warning code
-          }
       }
       
-      if(abs(joystick_x - adc_buffer[2])>100 || abs(joystick_y - adc_buffer[3])>100) {
+      if(abs(joystick_x - adc_buffer[2])>100 || abs(joystick_y - adc_buffer[3])>000) {
           can_send_flag = 1; // Set flag to send vehicle status
 
           joystick_x = adc_buffer[2]; // Joystick X-axis
           joystick_y = adc_buffer[3]; // Joystick Y-axis
 
-          float dx = (float)joystick_x - 2048;
-          float dy = (float)joystick_y - 2048;
+          float dx = (float)joystick_x - 3150;
+          float dy = (float)joystick_y - 3150;
 
-          // Tính góc (angle) theo đơn vị độ
-          float angle = atan2f(dy, dx) * 180.0f / M_PI;
+          if( !(dx < 100 && dx > -100 && dy <100 && dy > -100))
+          {
+              // Tính góc (angle) theo đơn vị độ
+            float angle = atan2f(dy, dx) * 180.0f / M_PI;
 
-          // Chuẩn hóa v�? [0, 360) nếu cần
-          if (angle < 0)
-              angle += 360.0f;
+            // Chuẩn hóa v�? [0, 360) nếu cần
+            if (angle < 0)
+                angle += 360.0f;
 
-          if (angle >= 45 && angle < 135) {
-              vehicle_data.transmission_gear = 1;
-          } else if (angle >= 135 && angle < 225) {
-              vehicle_data.transmission_gear = 2;
-          } else if (angle >= 225 && angle < 315) {
-              vehicle_data.transmission_gear = 3;
-          } else { // từ 315–360 hoặc 0–45
-              vehicle_data.transmission_gear = 4;
+            if (angle >= 45 && angle < 135) {
+                vehicle_data.transmission_gear = D_Gear;
+            } else if (angle >= 135 && angle < 225) {
+                vehicle_data.transmission_gear = P_Gear;
+            } else if (angle >= 225 && angle < 315) {
+                vehicle_data.transmission_gear = R_Gear;
+            } else { // từ 315–360 hoặc 0–45
+                vehicle_data.transmission_gear = N_Gear;
+            }
           }
+          
       }
-
       // Update GPS data
-      vehicle_data.gps_lat = GPS.dec_latitude;
-      vehicle_data.gps_lon = GPS.dec_longitude;
+      if(GPS.dec_latitude != 0.0f && GPS.dec_longitude != 0.0f) {
+        vehicle_data.gps_lat = GPS.dec_latitude;
+        vehicle_data.gps_lon = GPS.dec_longitude;
+      }
     }
-    osDelay(1);
+    osDelay(20);
   }
   /* USER CODE END Input_Handler */
 }
@@ -998,7 +1009,7 @@ void Compute_Handler(void const * argument)
     vehicle_data.arrived_time = arrived_time_s/ 60; // Convert seconds to minutes
     vehicle_data.arrived_distance = distance_metter/1000; // Convert meters to kilometers
     vehicle_data.total_distance = vehicle_data.battery_level *2;
-    osDelay(1);
+    osDelay(100);
   }
   /* USER CODE END Compute_Handler */
 }
@@ -1014,6 +1025,9 @@ void Control_Handler(void const * argument)
 {
   /* USER CODE BEGIN Control_Handler */
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
+  lcd_init(&hlcd, &hi2c1, LCD_ADDR_DEFAULT);// Khởi tạo LCD với địa chỉ mặc định
+  DFPLAYER_Init(&mp3, &huart2);                       // Khởi tạo module MP3 DFPlayer
+  DFPLAYER_SetVolume(&mp3, 20);
   /* Infinite loop */
   for(;;)
   {
@@ -1042,6 +1056,7 @@ void Control_Handler(void const * argument)
           HAL_GPIO_WritePin(GPIOB, GPIO_PIN_15, GPIO_PIN_RESET);
           HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_RESET);
           HAL_GPIO_WritePin(GPIOB, GPIO_PIN_13, GPIO_PIN_SET); 
+          break;
         default:
           break;
       }
@@ -1071,16 +1086,20 @@ void Control_Handler(void const * argument)
       }
 
       //Display speed 
-      if(vehicle_data.transmission_gear == 1) {
+      if(vehicle_data.transmission_gear == D_Gear) {
         Servo360_Control(vehicle_data.speed, 'D'); // Forward
       }
-      else if(vehicle_data.transmission_gear == 2)
+      else if(vehicle_data.transmission_gear == R_Gear)
       {
         Servo360_Control(vehicle_data.speed, 'R');
       }
 
       //Display lCD
-
+      lcd_backlight_on(&hlcd);
+      lcd_set_cursor(&hlcd, 0,0);
+      lcd_printf(&hlcd, "SpeedLimit: %d", speed_limit);
+      lcd_set_cursor(&hlcd, 1,0);
+      lcd_printf(&hlcd, "AirTemp: %d", air_condition_temp);
     }
     else
     {
@@ -1095,8 +1114,9 @@ void Control_Handler(void const * argument)
         HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, GPIO_PIN_RESET);
         HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_RESET);
         Servo360_Control(0, 'R');
+        lcd_backlight_off(&hlcd);
     }
-    osDelay(1);
+    osDelay(20);
   }
   /* USER CODE END Control_Handler */
 }
@@ -1114,36 +1134,79 @@ void Notify_Handler(void const * argument)
   /* Infinite loop */
   for(;;)
   {
+    if(vehicle_data.transmission_gear ==R_Gear || vehicle_data.transmission_gear == D_Gear)
+    {
+      if(vehicle_data.speed > speed_limit)
+      {
+        warning_notify_flag = 1; // Set warning flag for speed limit exceeded
+        warning_code = exceed_speed; // Set warning code
+      }
+      if(vehicle_data.battery_level < 20)
+      {
+        warning_notify_flag = 1; // Set warning flag for low battery
+        warning_code = low_battery; // Set warning code
+      }
+      if(vehicle_data.tire_pressure == 0)
+      {
+        warning_notify_flag = 1; // Set warning flag for low tire pressure
+        warning_code = low_tire_pressure; // Set warning code
+      }
+      if(vehicle_data.door_status == 0)
+      {
+        warning_notify_flag = 1; // Set warning flag for door open
+        warning_code = door_open; // Set warning code
+      }
+      if(vehicle_data.seat_belt_status == 0)
+      {
+        warning_notify_flag = 1; // Set warning flag for seat belt unfastened
+        warning_code = seat_belt_open; // Set warning code
+      }
+    }
     if(warning_notify_flag)
     {
+      warning_notify_flag=0;
       switch (warning_code)
       {
         case exceed_speed:
-          //play mp3 file
+          DFPLAYER_PlayTrack(&mp3,EXCEED_SPEED_SOUND); // Play sound for speed limit exceeded
+          osDelay(2000);
+          DFPLAYER_Stop(&mp3);
           break;
         case low_battery:
-          //play mp3 file
+          DFPLAYER_PlayTrack(&mp3,LOW_BATTERY_SOUND); // Play sound for low battery
+          osDelay(2000);
+          DFPLAYER_Stop(&mp3);
           break;
         case low_tire_pressure:
-          //play mp3 file
+          DFPLAYER_PlayTrack(&mp3,LOW_TIRE_PRESSURE_SOUND); // Play sound for low tire pressure
+          osDelay(2000);
+          DFPLAYER_Stop(&mp3);
           break;
         case door_open:
-          //play mp3 file
+          DFPLAYER_PlayTrack(&mp3,DOOR_OPEN_SOUND); // Play sound for door open
+          osDelay(2000);
+          DFPLAYER_Stop(&mp3);
           break;
         case seat_belt_open:
-          //play mp3 file
+          DFPLAYER_PlayTrack(&mp3,SEAT_BELT_OPEN_SOUND); // Play sound for seat belt unfastened
+          osDelay(2000);
+          DFPLAYER_Stop(&mp3);
           break;
         case air_condition_change:
-          //play mp3 file
+          DFPLAYER_PlayTrack(&mp3,AIR_CONDITION_CHANGE_SOUND); // Play sound for air condition change
+          osDelay(2000);
+          DFPLAYER_Stop(&mp3);
           break;
         case speed_limit_change:
-          //play mp3 file
+          DFPLAYER_PlayTrack(&mp3,SPEED_LIMIT_CHANGE_SOUND); // Play sound for speed limit change
+          osDelay(2000);
+          DFPLAYER_Stop(&mp3);
           break;
         default:
           break;
       }
     }
-    osDelay(1);
+    osDelay(50);
   }
   /* USER CODE END Notify_Handler */
 }

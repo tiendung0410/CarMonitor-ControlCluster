@@ -3,6 +3,7 @@
         "liquidcrystal_i2c.h": "c",
         "type_traits": "c",
         "main.h": "c",
-        "stm32f1xx_hal.h": "c"
+        "stm32f1xx_hal.h": "c",
+        "freertos.h": "c"
     }
 }
