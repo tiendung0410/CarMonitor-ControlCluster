@@ -52,3 +52,4 @@ stm32_carstatus\main.o: D:\Keil C\ARM\ARMCC\bin\..\include\math.h
 stm32_carstatus\main.o: ../Lib/gps.h
 stm32_carstatus\main.o: D:\Keil C\ARM\ARMCC\bin\..\include\stdio.h
 stm32_carstatus\main.o: ../Lib/LiquidCrystal_I2C.h
+stm32_carstatus\main.o: ../Lib/DFPLAYER.h

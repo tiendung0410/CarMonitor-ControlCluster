@@ -36,6 +36,7 @@
 "stm32_carstatus\port.o"
 "stm32_carstatus\gps.o"
 "stm32_carstatus\liquidcrystal_i2c.o"
+"stm32_carstatus\dfplayer.o"
 --strict --scatter "STM32_CarStatus\STM32_CarStatus.sct"
 
 --diag_suppress=L6329 --summary_stderr --info summarysizes --map --xref --callgraph --symbols
