@@ -86,24 +86,24 @@ ApplicationWindow {
 
         Image {
             id: topBar
-            width: 1357
+            width: 1100
             source: "qrc:/assets/Vector 70.svg"
 
             anchors{
                 top: parent.top
-                topMargin: 26.50
+                topMargin: 20
                 horizontalCenter: parent.horizontalCenter
             }
 
             Image {
                 id: engineState
                 property bool indicator: false
-                width: 50
-                height: 50
+                width: 52
+                height: 52
                 anchors{
                     top: parent.top
-                    topMargin: 25
-                    leftMargin: 230
+                    topMargin: 22
+                    leftMargin: 180
                     left: parent.left
                 }
                 source: (canReceiver.engine_status == 1) ? "qrc:/assets/EngineOn.svg" : "qrc:/assets/EngineOff.svg"
@@ -119,26 +119,26 @@ ApplicationWindow {
             Label{
                 id: currentTime
                 text: Qt.formatDateTime(new Date(), "hh:mm")
-                font.pixelSize: 32
+                font.pixelSize: 28
                 font.family: "Inter"
                 font.bold: Font.DemiBold
                 color: "#FFFFFF"
                 anchors.top: parent.top
-                anchors.topMargin: 25
+                anchors.topMargin: 22
                 anchors.horizontalCenter: parent.horizontalCenter
             }
 
             Label{
                 id: currentDate
                 text: Qt.formatDateTime(new Date(), "dd/MM/yyyy")
-                font.pixelSize: 32
+                font.pixelSize: 28
                 font.family: "Inter"
                 font.bold: Font.DemiBold
                 color: "#FFFFFF"
                 anchors.right: parent.right
-                anchors.rightMargin: 230
+                anchors.rightMargin: 160
                 anchors.top: parent.top
-                anchors.topMargin: 25
+                anchors.topMargin: 22
             }
         }
 
@@ -148,21 +148,10 @@ ApplicationWindow {
           Speed Label
         */
 
-        //        Label{
-        //            id:speedLabel
-        //            text: "68"
-        //            font.pixelSize: 134
-        //            font.family: "Inter"
-        //            color: "#01E6DE"
-        //            font.bold: Font.DemiBold
-        //            anchors.top: parent.top
-        //            anchors.topMargin:Math.floor(parent.height * 0.35)
-        //            anchors.horizontalCenter: parent.horizontalCenter
-        //        }
         Gauge {
             id: speedLabel
-            width: 450
-            height: 450
+            width: 300
+            height: 300
             maximumValue: 250
 
             value: canReceiver.speed       //  Dữ liệu nhận từ C++
@@ -170,24 +159,13 @@ ApplicationWindow {
             //speedColor: speedColor(value)  // vẫn giữ nếu bạn cần tô màu tùy giá trị
 
             anchors.top: parent.top
-            anchors.topMargin: Math.floor(parent.height * 0.25)
+            anchors.topMargin: Math.floor(parent.height * 0.23)
             anchors.horizontalCenter: parent.horizontalCenter
 
             Component.onCompleted: forceActiveFocus()
 
             Behavior on value { NumberAnimation { duration: 500 } }
         }
-
-
-        //        Label{
-        //            text: "MPH"
-        //            font.pixelSize: 46
-        //            font.family: "Inter"
-        //            color: "#01E6DE"
-        //            font.bold: Font.Normal
-        //            anchors.top:speedLabel.bottom
-        //            anchors.horizontalCenter: parent.horizontalCenter
-        //        }
 
 
         /*
@@ -198,8 +176,8 @@ ApplicationWindow {
 
         Rectangle{
             id:speedLimit
-            width: 130
-            height: 130
+            width: 100
+            height: 100
             radius: height/2
             color: "#f2f2f2"
             border.color: "#FF0000"
@@ -212,7 +190,7 @@ ApplicationWindow {
             Label{
                 id:maxSpeedlabel
                 text: canReceiver.speed_limit.toFixed(0)
-                font.pixelSize: 45
+                font.pixelSize: 35
                 font.family: "Inter"
                 font.bold: Font.Bold
                 color: "#01E6DE"
@@ -270,6 +248,8 @@ ApplicationWindow {
 
         Image {
             id:car
+            width: 90
+            height: 90
             anchors{
                 bottom: speedLimit.top
                 bottomMargin: 30
@@ -287,13 +267,13 @@ ApplicationWindow {
 
         Image {
             id: leftRoad
-            width: 127
-            height: 397
+            width: 100
+            height: 350
             anchors{
                 left: speedLimit.left
-                leftMargin: 100
+                leftMargin: 90
                 bottom: parent.bottom
-                bottomMargin: 26.50
+                bottomMargin: 20.50
             }
 
             source: "qrc:/assets/Vector 2.svg"
@@ -304,9 +284,9 @@ ApplicationWindow {
 
             anchors{
                 left: parent.left
-                leftMargin: 250
+                leftMargin: 120
                 bottom: parent.bottom
-                bottomMargin: 26.50 + 65
+                bottomMargin: 70
             }
 
             RowLayout{
@@ -315,10 +295,10 @@ ApplicationWindow {
                 Image {
                     id: air_Condition_Add_Button
                     property bool indicator: false
-                    width: 40                // Đặt lại kích thước mong muốn
-                    height: 40
+                    width: 15             // Đặt lại kích thước mong muốn
+                    height: 15
                     source: "qrc:/assets/Add.svg"
-                    fillMode: Image.PreserveAspectFit
+                    //fillMode: Image.PreserveAspectFit
                     Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft  // Căn chỉnh trong RowLayout
                     Behavior on indicator { NumberAnimation { duration: 300 }}
                     MouseArea {
@@ -332,63 +312,63 @@ ApplicationWindow {
 
                 Label{
                     text: canReceiver.air_condition_temperature.toFixed(0)
-                    font.pixelSize: 32
+                    font.pixelSize: 35
                     font.family: "Inter"
                     font.bold: Font.Normal
                     font.capitalization: Font.AllUppercase
                     color: "#FFFFFF"
-                    Layout.preferredWidth: 50  // Cố định width cho 3 chữ số
+                    Layout.preferredWidth: 30  // Cố định width cho 3 chữ số
                     horizontalAlignment: Text.AlignRight
                 }
 
                 Label{
                     text: "°C"
-                    font.pixelSize: 32
+                    font.pixelSize: 35
                     font.family: "Inter"
                     font.bold: Font.Normal
                     font.capitalization: Font.AllUppercase
-                    opacity: 0.2
-                    color: "#FFFFFF"
+                    //opacity: 0.2
+                    color: "#ffffffff"
                 }
             }
 
             RowLayout{
                 spacing: 1
-                Layout.topMargin: 10
+                Layout.topMargin: 0
                 Rectangle{
                     width: 20
                     height: 15
-                    color: canReceiver.air_condition_temperature.toFixed(0) > 16 ? airConditionColor(canReceiver.air_condition_temperature) : "#333333"
+                    color: canReceiver.air_condition_temperature.toFixed(0) > 16 ? airConditionColor(canReceiver.air_condition_temperature) : "#a6a6a6"
                 }
                 Rectangle{
                     width: 20
                     height: 15
-                    color: canReceiver.air_condition_temperature.toFixed(0) > 19 ? airConditionColor(canReceiver.air_condition_temperature) : "#333333"
+                    color: canReceiver.air_condition_temperature.toFixed(0) > 19 ? airConditionColor(canReceiver.air_condition_temperature) : "#a6a6a6"
                 }
                 Rectangle{
                     width: 20
                     height: 15
-                    color: canReceiver.air_condition_temperature.toFixed(0) > 22 ? airConditionColor(canReceiver.air_condition_temperature) : "#333333"
+                    color: canReceiver.air_condition_temperature.toFixed(0) > 22 ? airConditionColor(canReceiver.air_condition_temperature) : "#a6a6a6"
                 }
                 Rectangle{
                     width: 20
                     height: 15
-                    color: canReceiver.air_condition_temperature.toFixed(0) > 25 ? airConditionColor(canReceiver.air_condition_temperature) : "#333333"
+                    color: canReceiver.air_condition_temperature.toFixed(0) > 25 ? airConditionColor(canReceiver.air_condition_temperature) : "#a6a6a6"
                 }
                 Rectangle{
                     width: 20
                     height: 15
-                    color: canReceiver.air_condition_temperature.toFixed(0) > 28 ? airConditionColor(canReceiver.air_condition_temperature) : "#333333"
+                    color: canReceiver.air_condition_temperature.toFixed(0) > 28 ? airConditionColor(canReceiver.air_condition_temperature) : "#a6a6a6"
                 }
                 Rectangle{
                     width: 20
                     height: 15
-                    color: canReceiver.air_condition_temperature.toFixed(0) > 31 ? airConditionColor(canReceiver.air_condition_temperature) : "#333333"
+                    color: canReceiver.air_condition_temperature.toFixed(0) > 31 ? airConditionColor(canReceiver.air_condition_temperature) : "#a6a6a6"
                 }
                 Rectangle{
                     width: 20
                     height: 15
-                    color: canReceiver.air_condition_temperature.toFixed(0) > 34 ? airConditionColor(canReceiver.air_condition_temperature) : "#333333"
+                    color: canReceiver.air_condition_temperature.toFixed(0) > 34 ? airConditionColor(canReceiver.air_condition_temperature) : "#a6a6a6"
                 }
             }
 
@@ -423,13 +403,13 @@ ApplicationWindow {
 
         Image {
             id: rightRoad
-            width: 127
-            height: 397
+            width: 100
+            height: 350
             anchors{
                 right: speedLimit.right
-                rightMargin: 100
+                rightMargin: 90
                 bottom: parent.bottom
-                bottomMargin: 26.50
+                bottomMargin: 20.50
             }
 
             source: "qrc:/assets/Vector 1.svg"
@@ -443,9 +423,9 @@ ApplicationWindow {
             spacing: 20
             anchors{
                 right: parent.right
-                rightMargin: 350
+                rightMargin: 140
                 bottom: parent.bottom
-                bottomMargin: 26.50 + 65
+                bottomMargin: 80
             }
 
             Label{
@@ -501,9 +481,9 @@ ApplicationWindow {
             height: 70.2
             anchors{
                 left: parent.left
-                leftMargin: 145
+                leftMargin: 85
                 bottom: secondLeftIndicator.top
-                bottomMargin: 25
+                bottomMargin: 30
             }
             source: (canReceiver.light_status ==1) ? "qrc:/assets/HighBeamLightOn.svg" : "qrc:/assets/HighBeamLightOff.svg"
             //Behavior on lightOn { NumberAnimation { duration: 300 }}
@@ -522,7 +502,7 @@ ApplicationWindow {
             height: 51
             anchors{
                 left: parent.left
-                leftMargin: 125
+                leftMargin: 85
                 bottom: firstLeftIndicator.top
                 bottomMargin: 30
             }
@@ -544,8 +524,9 @@ ApplicationWindow {
             height: 51
             anchors{
                 left: parent.left
-                leftMargin: 100
-                verticalCenter: speedLabel.verticalCenter
+                leftMargin: 85
+                bottom: parent.bottom
+                bottomMargin: 250
             }
             source: (canReceiver.light_status ==3) ? "qrc:/assets/FogLightOn.svg" : "qrc:/assets/FogLightOff.svg"
             Behavior on rareLightOn { NumberAnimation { duration: 300 }}
@@ -567,7 +548,7 @@ ApplicationWindow {
             height: 36.17
             anchors{
                 right: parent.right
-                rightMargin: 155
+                rightMargin: 80
                 bottom: secondRightIndicator.top
                 bottomMargin: 50
             }
@@ -588,11 +569,11 @@ ApplicationWindow {
             height: 36.17
             anchors{
                 right: parent.right
-                rightMargin: 125
+                rightMargin: 80
                 bottom: firstRightIndicator.top
                 bottomMargin: 50
             }
-            source: (canReceiver.door_status ==1) ? "qrc:/assets/DoorOpen.svg" : "qrc:/assets/DoorClosed.svg"
+            source: (canReceiver.door_status ==1) ? "qrc:/assets/DoorClosed.svg" : "qrc:/assets/DoorOpen.svg"
             Behavior on indicator { NumberAnimation { duration: 300 }}
             MouseArea{
                 anchors.fill: parent
@@ -609,8 +590,9 @@ ApplicationWindow {
             height: 45
             anchors{
                 right: parent.right
-                rightMargin: 100
-                verticalCenter: speedLabel.verticalCenter
+                rightMargin: 85
+                bottom: parent.bottom
+                bottomMargin: 250
             }
             source: (canReceiver.seat_belt_status ==1) ? "qrc:/assets/SeatBeltOn.svg" : "qrc:/assets/SeatBeltOff.svg"
             Behavior on sheetBelt { NumberAnimation { duration: 300 }}
@@ -631,12 +613,12 @@ ApplicationWindow {
                 leftMargin: parent.width / 6
             }
 
-            width: 338
-            height: 338
+            width: 250
+            height: 250
             penStyle: Qt.RoundCap
             dialType: RadialBar.NoDial
             progressColor: "#01E4E0"
-            backgroundColor: "#333333"  // Màu nền mờ cho phần còn lại của vòng tròn
+            backgroundColor: "#363636ff"  // Màu nền mờ cho phần còn lại của vòng tròn
             dialWidth: 17
             startAngle: 270
             spanAngle: 3.6 * value
@@ -647,7 +629,7 @@ ApplicationWindow {
                 family: "inter"
                 italic: false
                 bold: Font.Medium
-                pixelSize: 60
+                pixelSize: 40
             }
             showText: false
             suffixText: ""
@@ -660,7 +642,7 @@ ApplicationWindow {
                 anchors.centerIn: parent
                 Label{
                     text: radialBar.value.toFixed(0) + "%"
-                    font.pixelSize: 65
+                    font.pixelSize: 40
                     font.family: "Inter"
                     font.bold: Font.Normal
                     color: "#FFFFFF"
@@ -668,8 +650,8 @@ ApplicationWindow {
                 }
 
                 Label{
-                    text: "Battery charge"
-                    font.pixelSize: 28
+                    text: "Battery level"
+                    font.pixelSize: 24
                     font.family: "Inter"
                     font.bold: Font.Normal
                     opacity: 0.8
@@ -683,23 +665,24 @@ ApplicationWindow {
             spacing: 40
 
             anchors{
-                verticalCenter: parent.verticalCenter
+                top: parent.top
+                topMargin: 230
                 right: parent.right
-                rightMargin: parent.width / 6
+                rightMargin: 180
             }
 
             RowLayout{
-                spacing: 30
+                spacing: 20
                 Image {
-                    width: 72
-                    height: 50
+                    width: 20
+                    height:20
                     source: "qrc:/assets/road.svg"
                 }
 
                 ColumnLayout{
                     Label{
                         text: canReceiver.arrived_distance.toFixed(0) + "KM"
-                        font.pixelSize: 30
+                        font.pixelSize: 25
                         font.family: "Inter"
                         font.bold: Font.Normal
                         opacity: 0.8
@@ -707,7 +690,7 @@ ApplicationWindow {
                     }
                     Label{
                         text: "Drived Distance"
-                        font.pixelSize: 20
+                        font.pixelSize: 18
                         font.family: "Inter"
                         font.bold: Font.Normal
                         opacity: 0.8
@@ -716,17 +699,17 @@ ApplicationWindow {
                 }
             }
             RowLayout{
-                spacing: 30
+                spacing: 20
                 Image {
-                    width: 72
-                    height: 78
+                    width: 20
+                    height: 20
                     source: "qrc:/assets/fuel.svg"
                 }
 
                 ColumnLayout{
                     Label{
                         text: canReceiver.remain_distance.toFixed(0) + "KM"
-                        font.pixelSize: 30
+                        font.pixelSize: 25
                         font.family: "Inter"
                         font.bold: Font.Normal
                         opacity: 0.8
@@ -734,7 +717,7 @@ ApplicationWindow {
                     }
                     Label{
                         text: "Remain Distance"
-                        font.pixelSize: 20
+                        font.pixelSize: 18
                         font.family: "Inter"
                         font.bold: Font.Normal
                         opacity: 0.8
@@ -743,25 +726,25 @@ ApplicationWindow {
                 }
             }
             RowLayout{
-                spacing: 30
+                spacing: 20
                 Image {
-                    width: 72
-                    height: 72
+                    width: 20
+                    height: 20
                     source: "qrc:/assets/speedometer.svg"
                 }
 
                 ColumnLayout{
                     Label{
-                        text: canReceiver.avg_speed.toFixed(0) + "mph"
-                        font.pixelSize: 30
+                        text: canReceiver.drived_time.toFixed(0) + " minutes"
+                        font.pixelSize: 25
                         font.family: "Inter"
                         font.bold: Font.Normal
                         opacity: 0.8
                         color: "#FFFFFF"
                     }
                     Label{
-                        text: "Average Speed"
-                        font.pixelSize: 20
+                        text: "Drived Time"
+                        font.pixelSize: 18
                         font.family: "Inter"
                         font.bold: Font.Normal
                         opacity: 0.8
