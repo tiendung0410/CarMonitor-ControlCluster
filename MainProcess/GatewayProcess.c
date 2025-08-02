@@ -12,6 +12,7 @@
 #include <time.h>
 #include <errno.h>
 #include <pthread.h>
+#include <sys/wait.h>
 #include <mosquitto.h>
 #include <json-c/json.h>
 
@@ -52,6 +53,7 @@ typedef struct {
 }DataTransfer_t;
 
 DataTransfer_t data_transfer;
+uint8_t thingsboard_fixed_setting;
 
 void reset_packet_receiver();
 void process_header_packet(struct can_frame *frame);
@@ -211,7 +213,21 @@ void* air_condition_thread(void* arg) {
             printf("Received air condition temperature (thread): %d\n", controlData.air_condition_temperature);
             // Cập nhật biến toàn cục
             data_transfer.control_data.air_condition_temperature = controlData.air_condition_temperature;
-            data_transfer.control_data.speed_limit = controlData.speed_limit;
+            if(!thingsboard_fixed_setting)
+            {
+                data_transfer.control_data.speed_limit = controlData.speed_limit;
+            }
+            else
+            {
+                int sent = sendto(unix_fd, &data_transfer, sizeof(DataTransfer_t), 0, 
+                                                (struct sockaddr *)&addr, sizeof(addr));
+                                if (sent < 0) {
+                                    perror("sendto");
+                                } else {
+                                    printf("Sent vehicle status to GUI\n");
+                                }
+            }
+            
             // Gửi qua MQTT
             publish_telemetry();
             // Gửi qua CAN
@@ -352,6 +368,18 @@ void on_message(struct mosquitto *mosq, void *userdata, const struct mosquitto_m
                 publish_telemetry();
                 printf(">> [DOOR STATUS] Set to: %s \n", value ? "CLOSED" : "OPEN");
             }
+            else if (strcmp(method, "setDoorStatus") == 0) {
+                int value = json_object_get_int(params_obj);
+                data_transfer.vehicle_status.door_status = value;
+                publish_telemetry();
+                printf(">> [DOOR STATUS] Set to: %s \n", value ? "CLOSED" : "OPEN");
+            }
+            else if (strcmp(method, "setFixedLimit") == 0) {
+                int value = json_object_get_int(params_obj);
+                thingsboard_fixed_setting = value;
+                publish_telemetry();
+                printf(">> [DOOR STATUS] Set to: %s \n", value ? "CLOSED" : "OPEN");
+            }
         }
     }
 
@@ -388,130 +416,146 @@ void on_message(struct mosquitto *mosq, void *userdata, const struct mosquitto_m
 // Hàm chính
 int main(int argc, char *argv[]) {
     //--------------------------------Khoi tao CAN Socket--------------------------------
-    
-    struct can_frame frame;
-    const char *interface = "can1";
-    
-    if (argc > 1) {
-        interface = argv[1];
-    }
-    
-    printf("Setting up CAN interface: %s\n", interface);
-    
-    // Khởi tạo CAN socket
-    sockfd = setup_can_socket(interface);
-    if (sockfd < 0) {
-        printf("Failed to setup CAN socket\n");
-        return 1;
-    }
-    
-    printf("CAN socket setup successful. Listening for messages...\n");
-    
-    // Reset packet receiver
-    reset_packet_receiver();
-    
-    //---------------------------------Khoi tao Datagram Unix Domain Socket--------------------------------
-
-
-    unix_fd = socket(AF_UNIX, SOCK_DGRAM, 0);
-    if (unix_fd < 0) {
-        perror("socket");
-        exit(1);
-    }
-
-    memset(&addr, 0, sizeof(addr));
-    addr.sun_family = AF_UNIX;
-    strncpy(addr.sun_path, SOCKET_PATH, sizeof(addr.sun_path) - 1);
-
-    struct sockaddr_un test_addr;
-    memset(&test_addr, 0, sizeof(test_addr));
-    test_addr.sun_family = AF_UNIX;
-    strncpy(test_addr.sun_path, "/tmp/test_socket", sizeof(test_addr.sun_path) - 1);
-    unlink("/tmp/test_socket");
-    bind(unix_fd, (struct sockaddr *)&test_addr, sizeof(test_addr));
-
-    pthread_t tid;
-    pthread_create(&tid, NULL, air_condition_thread, NULL);
-    data_transfer.control_data.air_condition_temperature = 25; // Giá trị mặc định
-    data_transfer.control_data.speed_limit = 80; // Giá trị mặc định
-
-    //---------------------------------Kết nối MQTT--------------------------------
-    mosquitto_lib_init();
-    mosq = mosquitto_new(NULL, true, NULL);
-    if (!mosq) {
-        fprintf(stderr, "Failed to create mosquitto instance\n");
-        return EXIT_FAILURE;
-    }
-
-    mosquitto_username_pw_set(mosq, ACCESS_TOKEN, NULL);
-    mosquitto_connect_callback_set(mosq, on_connect);
-    mosquitto_message_callback_set(mosq, on_message);
-
-    if (mosquitto_connect(mosq, MQTT_HOST, MQTT_PORT, 60) != MOSQ_ERR_SUCCESS) {
-        fprintf(stderr, "Unable to connect to broker\n");
-        return EXIT_FAILURE;
-    }
-
-    // Start loop in a background thread
-    mosquitto_loop_start(mosq);
-
-    //------------------------------------ Vòng lặp chính để nhận dữ liệu------------------------------------
-    while (1) {
-        ssize_t nbytes = read(sockfd, &frame, sizeof(struct can_frame));
+    pid_t pid;
+    pid= fork();
+    if (pid < 0) {
+        perror("Fork failed");
+        exit(EXIT_FAILURE);
+    } else if (pid == 0) {
+        // Child process
+        system("dos2unix /root/MainProcess/script.sh");
+        system("/root/MainProcess/script.sh");
+    } else {
+        sleep(2); // Đợi child process khởi động
+        struct can_frame frame;
+        const char *interface = "can1";
         
-        if (nbytes < 0) {
-            perror("CAN read error");
-            break;
+        if (argc > 1) {
+            interface = argv[1];
         }
         
-        if (nbytes < sizeof(struct can_frame)) {
-            printf("Incomplete CAN frame received\n");
-            continue;
+        printf("Setting up CAN interface: %s\n", interface);
+        
+        // Khởi tạo CAN socket
+        sockfd = setup_can_socket(interface);
+        if (sockfd < 0) {
+            printf("Failed to setup CAN socket\n");
+            return 1;
         }
         
-        // Xử lý frame theo CAN ID
-        switch (frame.can_id) {
-            case PACKET_HEADER_ID:
-                reset_packet_receiver();
-                process_header_packet(&frame);
-                break;
+        printf("CAN socket setup successful. Listening for messages...\n");
+        
+        // Reset packet receiver
+        reset_packet_receiver();
+        
+        //---------------------------------Khoi tao Datagram Unix Domain Socket--------------------------------
+
+
+        unix_fd = socket(AF_UNIX, SOCK_DGRAM, 0);
+        if (unix_fd < 0) {
+            perror("socket");
+            exit(1);
+        }
+
+        memset(&addr, 0, sizeof(addr));
+        addr.sun_family = AF_UNIX;
+        strncpy(addr.sun_path, SOCKET_PATH, sizeof(addr.sun_path) - 1);
+
+        struct sockaddr_un test_addr;
+        memset(&test_addr, 0, sizeof(test_addr));
+        test_addr.sun_family = AF_UNIX;
+        strncpy(test_addr.sun_path, "/tmp/test_socket", sizeof(test_addr.sun_path) - 1);
+        unlink("/tmp/test_socket");
+        bind(unix_fd, (struct sockaddr *)&test_addr, sizeof(test_addr));
+
+        pthread_t tid;
+        pthread_create(&tid, NULL, air_condition_thread, NULL);
+        data_transfer.control_data.air_condition_temperature = 25; // Giá trị mặc định
+        data_transfer.control_data.speed_limit = 80; // Giá trị mặc định
+
+        //---------------------------------Kết nối MQTT--------------------------------
+        mosquitto_lib_init();
+        mosq = mosquitto_new(NULL, true, NULL);
+        if (!mosq) {
+            fprintf(stderr, "Failed to create mosquitto instance\n");
+            return EXIT_FAILURE;
+        }
+
+        mosquitto_username_pw_set(mosq, ACCESS_TOKEN, NULL);
+        mosquitto_connect_callback_set(mosq, on_connect);
+        mosquitto_message_callback_set(mosq, on_message);
+
+        if (mosquitto_connect(mosq, MQTT_HOST, MQTT_PORT, 60) != MOSQ_ERR_SUCCESS) {
+            fprintf(stderr, "Unable to connect to broker\n");
+            return EXIT_FAILURE;
+        }
+
+        // Start loop in a background thread
+        mosquitto_loop_start(mosq);
+        //-----------------------------------------Kết thúc khởi tạo--------------------------------
+
+
+        //------------------------------------ Vòng lặp chính để nhận dữ liệu------------------------------------
+        while (1) {
+                ssize_t nbytes = read(sockfd, &frame, sizeof(struct can_frame));
                 
-            case PACKET_DATA_ID:
-                if (packet_receiver.frame_count > 0) {
-                    if (process_data_packet(&frame)) {
-                        // Đã nhận đủ dữ liệu
-                        if (packet_receiver.message_type == 0x01 && 
-                            packet_receiver.data_size == sizeof(VehicleStatus)) {
-                            // Chuyển đổi dữ liệu nhận được thành VehicleStatus
-                            memcpy(&data_transfer.vehicle_status, packet_receiver.data_buffer, sizeof(VehicleStatus));
-                            print_vehicle_status(data_transfer.vehicle_status);
-                            // Gửi vehicle status qua Unix socket
-                            int sent = sendto(unix_fd, &data_transfer, sizeof(DataTransfer_t), 0, 
-                                            (struct sockaddr *)&addr, sizeof(addr));
-                            if (sent < 0) {
-                                perror("sendto");
-                            } else {
-                                printf("Sent vehicle status to GUI\n");
-                            }
-                            // Gửi qua MQTT
-                            publish_telemetry();
-                        }
-                        
-                        // Reset để chuẩn bị cho message tiếp theo
-                        reset_packet_receiver();
-                    }
+                if (nbytes < 0) {
+                    perror("CAN read error");
+                    break;
                 }
-                break;
                 
-            default:
-                printf("Unknown CAN ID: 0x%X\n", frame.can_id);
-                break;
+                if (nbytes < sizeof(struct can_frame)) {
+                    printf("Incomplete CAN frame received\n");
+                    continue;
+                }
+                
+                // Xử lý frame theo CAN ID
+                switch (frame.can_id) {
+                    case PACKET_HEADER_ID:
+                        reset_packet_receiver();
+                        process_header_packet(&frame);
+                        break;
+                        
+                    case PACKET_DATA_ID:
+                        if (packet_receiver.frame_count > 0) {
+                            if (process_data_packet(&frame)) {
+                                // Đã nhận đủ dữ liệu
+                                if (packet_receiver.message_type == 0x01 && 
+                                    packet_receiver.data_size == sizeof(VehicleStatus)) {
+                                    // Chuyển đổi dữ liệu nhận được thành VehicleStatus
+                                    memcpy(&data_transfer.vehicle_status, packet_receiver.data_buffer, sizeof(VehicleStatus));
+                                    print_vehicle_status(data_transfer.vehicle_status);
+                                    // Gửi vehicle status qua Unix socket
+                                    int sent = sendto(unix_fd, &data_transfer, sizeof(DataTransfer_t), 0, 
+                                                    (struct sockaddr *)&addr, sizeof(addr));
+                                    if (sent < 0) {
+                                        perror("sendto");
+                                    } else {
+                                        printf("Sent vehicle status to GUI\n");
+                                    }
+                                    // Gửi qua MQTT
+                                    publish_telemetry();
+                                }
+                                
+                                // Reset để chuẩn bị cho message tiếp theo
+                                reset_packet_receiver();
+                            }
+                        }
+                        break;
+                        
+                    default:
+                        printf("Unknown CAN ID: 0x%X\n", frame.can_id);
+                        break;
+                }
+                
+                
+            }
+            wait(NULL); // Chờ child process kết thúc
+            mosquitto_destroy(mosq);
+            mosquitto_lib_cleanup();
+            close(sockfd);
+            close(unix_fd);
+            return 0;
         }
-        
-    }
-    mosquitto_destroy(mosq);
-    mosquitto_lib_cleanup();
-    close(sockfd);
-    close(unix_fd);
-    return 0;
+    
 }

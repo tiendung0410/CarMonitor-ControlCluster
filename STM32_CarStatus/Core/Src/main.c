@@ -938,7 +938,7 @@ void Input_Handler(void const * argument)
     
       // Read ADC values 
       if(vehicle_data.transmission_gear == D_Gear || vehicle_data.transmission_gear == R_Gear) {
-          if(abs(adc_buffer[0] - vehicle_data.speed) > 20) {
+          if(abs(adc_buffer[0] * 250 / 4095 - vehicle_data.speed) > 2) {
               can_send_flag = 1; // Set flag to send vehicle status
               vehicle_data.speed = adc_buffer[0] * 250 / 4095; // Assuming 0-4095 ADC range
           }
@@ -947,12 +947,12 @@ void Input_Handler(void const * argument)
       }
 
 
-      if(abs(vehicle_data.battery_level *4095 / 100 - adc_buffer[1]) > 20) {
+      if(abs(vehicle_data.battery_level *4095 / 100 - adc_buffer[1]) > 30) {
           can_send_flag = 1; // Set flag to send vehicle status
           vehicle_data.battery_level = adc_buffer[1] * 100 / 4095; // Assuming 0-4095 ADC range
       }
       
-      if(abs(joystick_x - adc_buffer[2])>100 || abs(joystick_y - adc_buffer[3])>000) {
+      if(abs(joystick_x - adc_buffer[2])>100 || abs(joystick_y - adc_buffer[3])>100) {
           can_send_flag = 1; // Set flag to send vehicle status
 
           joystick_x = adc_buffer[2]; // Joystick X-axis
@@ -1113,6 +1113,7 @@ void Control_Handler(void const * argument)
         HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2, GPIO_PIN_RESET);
         HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, GPIO_PIN_RESET);
         HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_RESET);
+        vehicle_data.speed = 0; // Reset speed when engine is off
         Servo360_Control(0, 'R');
         lcd_backlight_off(&hlcd);
     }
