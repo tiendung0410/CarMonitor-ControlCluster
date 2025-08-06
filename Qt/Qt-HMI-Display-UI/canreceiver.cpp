@@ -12,7 +12,7 @@ CanReceiver::CanReceiver(QObject *parent)
       m_tirePressure(0), m_doorStatus(0), m_seatBeltStatus(0), m_batteryLevel(0),
       m_arrivedDistance(0), m_remainDistance(0), m_drivedTime(0),
       m_transmissionGear(0),
-      m_gpsLat(0.0), m_gpsLon(0.0), m_airConditionTemperature(0),m_speedLimit(0)
+      m_gpsLat(0.0), m_gpsLon(0.0), m_airConditionTemperature(25),m_speedLimit(80)
 {
     m_sockfd = socket(AF_UNIX, SOCK_DGRAM, 0);
 

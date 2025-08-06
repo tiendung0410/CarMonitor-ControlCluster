@@ -11,13 +11,20 @@ ApplicationWindow {
     title: qsTr("Car DashBoard")
     color: "#1E1E1E"
     visibility: "FullScreen"
-    property int nextSpeed: 60
-
-    function generateRandom(maxLimit = 70){
-        let rand = Math.random() * maxLimit;
-        rand = Math.floor(rand);
-        return rand;
+    
+    // Cấu hình cho màn hình cảm ứng
+    property real screenScale: Math.min(width / 1920, height / 960)
+    property real touchAreaSize: Math.max(40, 40 * screenScale)
+    
+    // Cấu hình cho việc xử lý cảm ứng
+    property bool touchEnabled: true
+    
+    // Hàm để kiểm tra xem có phải là màn hình cảm ứng không
+    function isTouchScreen() {
+        return Screen.primaryOrientation === Qt.PortraitOrientation || 
+               Screen.primaryOrientation === Qt.LandscapeOrientation
     }
+
 
     function speedColor(value){
         if(value < 60 ){
@@ -37,15 +44,6 @@ ApplicationWindow {
         }
     }
 
-    function temperature_color(value){
-        if(value < 85 ){
-            return "green"
-        } else if(value >= 85 && value < 105){
-            return "yellow"
-        }else{
-            return "Red"
-        }
-    }
 
     Timer {
         interval: 500
@@ -57,14 +55,6 @@ ApplicationWindow {
         }
     }
 
-    Timer{
-        repeat: true
-        interval: 3000
-        running: true
-        onTriggered: {
-            nextSpeed = generateRandom()
-        }
-    }
 
     Shortcut {
         sequence: "Ctrl+Q"
@@ -72,9 +62,18 @@ ApplicationWindow {
         onActivated: Qt.quit()
     }
 
+    Image {
+        id: dashboard_off
+        visible: !canReceiver.engine_status
+        width: parent.width + 800
+        height: parent.height +400
+        anchors.centerIn: parent
+        source: "qrc:/assets/displayoff.svg"
+    }
 
     Image {
         id: dashboard
+        visible: canReceiver.engine_status
         width: parent.width
         height: parent.height
         anchors.centerIn: parent
@@ -110,8 +109,16 @@ ApplicationWindow {
                 Behavior on indicator { NumberAnimation { duration: 300 }}
                 MouseArea{
                     anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
                     onClicked: {
                         engineState.indicator = !engineState.indicator
+                    }
+                    onPressed: {
+                        engineState.scale = 0.95
+                    }
+                    onReleased: {
+                        engineState.scale = 1.0
                     }
                 }
             }
@@ -217,9 +224,21 @@ ApplicationWindow {
             Behavior on indicator { NumberAnimation { duration: 300 }}
             MouseArea {
                 anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
                 onClicked: {
-                    canReceiver.speedLimitAdd()
-                    canReceiver.UpdateData()
+                    if(canReceiver.engine_status == 1)
+                    {
+                        canReceiver.speedLimitAdd()
+                        canReceiver.UpdateData()
+                    }
+                    
+                }
+                onPressed: {
+                    speed_Limit_Add_Button.scale = 0.95
+                }
+                onReleased: {
+                    speed_Limit_Add_Button.scale = 1.0
                 }
             }
         }
@@ -239,23 +258,34 @@ ApplicationWindow {
             Behavior on indicator { NumberAnimation { duration: 300 }}
             MouseArea {
                 anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
                 onClicked: {
-                    canReceiver.speedLimitSubtract()
-                    canReceiver.UpdateData()
+                    if(canReceiver.engine_status == 1)
+                    {
+                        canReceiver.speedLimitSubtract()
+                        canReceiver.UpdateData()
+                    }
+                }
+                onPressed: {
+                    speed_Limit_Substract_Button.scale = 0.95
+                }
+                onReleased: {
+                    speed_Limit_Substract_Button.scale = 1.0
                 }
             }
         }
 
         Image {
             id:car
-            width: 90
-            height: 90
+            width: (canReceiver.light_status == 0) ? 90 : 180
+            height: (canReceiver.light_status == 0) ? 90 : 180
             anchors{
                 bottom: speedLimit.top
-                bottomMargin: 30
+                bottomMargin: (canReceiver.light_status == 0) ? 30 : 16
                 horizontalCenter:speedLimit.horizontalCenter
             }
-            source: "qrc:/assets/Car.svg"
+            source: (canReceiver.light_status == 0) ? "qrc:/assets/Car.svg" : "qrc:/assets/newcar.svg"
         }
 
         // IMGonline.com.ua  ==> Compress Image With
@@ -301,13 +331,25 @@ ApplicationWindow {
                     //fillMode: Image.PreserveAspectFit
                     Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft  // Căn chỉnh trong RowLayout
                     Behavior on indicator { NumberAnimation { duration: 300 }}
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: {
+                                    MouseArea {
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        if(canReceiver.engine_status == 1)
+                        {
                             canReceiver.airConditionTemperatureAdd()
                             canReceiver.UpdateData()
                         }
+                        // Nếu engine đang tắt, không làm gì cả
                     }
+                    onPressed: {
+                        air_Condition_Add_Button.scale = 0.95
+                    }
+                    onReleased: {
+                        air_Condition_Add_Button.scale = 1.0
+                    }
+                }
                 }
 
                 Label{
@@ -317,7 +359,7 @@ ApplicationWindow {
                     font.bold: Font.Normal
                     font.capitalization: Font.AllUppercase
                     color: "#FFFFFF"
-                    Layout.preferredWidth: 30  // Cố định width cho 3 chữ số
+                    Layout.preferredWidth: 45  // Cố định width cho 3 chữ số
                     horizontalAlignment: Text.AlignRight
                 }
 
@@ -387,8 +429,11 @@ ApplicationWindow {
                     MouseArea {
                         anchors.fill: parent
                         onClicked: {
-                            canReceiver.airConditionTemperatureSubtract()
-                            canReceiver.UpdateData()
+                            if(canReceiver.engine_status == 1)
+                            {
+                                canReceiver.airConditionTemperatureSubtract()
+                                canReceiver.UpdateData()
+                            } 
                         }
                     }
                 }
@@ -434,7 +479,7 @@ ApplicationWindow {
                 font.family: "Inter"
                 font.bold: Font.Normal
                 font.capitalization: Font.AllUppercase
-                color: "#32D74B"
+                color:(canReceiver.engineStatus == 1) ? "#32D74B" : "#a6a6a6" 
             }
             
             Label{
@@ -453,6 +498,7 @@ ApplicationWindow {
                 font.bold: Font.Normal
                 font.capitalization: Font.AllUppercase
                 color: (canReceiver.transmission_gear == 1)  ?  "#01EBD4"  : "#a6a6a6"
+                
             }
             Label{
                 text: "N"
@@ -490,7 +536,18 @@ ApplicationWindow {
             MouseArea{
                 anchors.fill: parent
                 onClicked: {
-                    highBeamLightIndicator.lightOn = !highBeamLightIndicator.lightOn
+                    if(canReceiver.engine_status == 1)
+                    {
+                        if(canReceiver.light_status == 0 )
+                        {
+                            canReceiver.setLightStatus(1)
+                        }
+                        else if(canReceiver.light_status == 1 )
+                        {
+                            canReceiver.setLightStatus(0)
+                        }
+                        canReceiver.UpdateData()
+                    }
                 }
             }
         }
@@ -512,7 +569,18 @@ ApplicationWindow {
             MouseArea{
                 anchors.fill: parent
                 onClicked: {
-                    secondLeftIndicator.headLightOn = !secondLeftIndicator.headLightOn
+                    if(canReceiver.engine_status == 1)
+                    {
+                        if(canReceiver.light_status == 0 )
+                        {
+                            canReceiver.setLightStatus(2)
+                        }
+                        else if(canReceiver.light_status == 2 )
+                        {
+                            canReceiver.setLightStatus(0)
+                        }
+                        canReceiver.UpdateData()
+                    }
                 }
             }
         }
@@ -533,13 +601,23 @@ ApplicationWindow {
             MouseArea{
                 anchors.fill: parent
                 onClicked: {
-                    firstLeftIndicator.rareLightOn = !firstLeftIndicator.rareLightOn
+                    if(canReceiver.engine_status == 1)
+                    {
+                        if(canReceiver.light_status == 0 )
+                        {
+                            canReceiver.setLightStatus(3)
+                        }
+                        else if(canReceiver.light_status == 3 )
+                        {
+                            canReceiver.setLightStatus(0)
+                        }
+                        canReceiver.UpdateData()
+                    }
                 }
             }
         }
 
         /*Right Side Icons*/
-
 
         Image {
             id:thirdRightIndicator
@@ -578,7 +656,7 @@ ApplicationWindow {
             MouseArea{
                 anchors.fill: parent
                 onClicked: {
-                    secondRightIndicator.indicator = !secondRightIndicator.indicator
+                    
                 }
             }
         }
@@ -599,7 +677,7 @@ ApplicationWindow {
             MouseArea{
                 anchors.fill: parent
                 onClicked: {
-                    firstRightIndicator.sheetBelt = !firstRightIndicator.sheetBelt
+                    
                 }
             }
         }

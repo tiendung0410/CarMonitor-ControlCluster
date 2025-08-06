@@ -3,7 +3,13 @@
 <pre>
 <h1>µVision Build Log</h1>
 <h2>Project:</h2>
-D:\STM32 project\STM32_CarStatus\MDK-ARM\STM32_CarStatus.uvproj
-Project File Date:  07/26/2025
+D:\Car_HMI_Cluster(for root)\Car-HMI-Cluster\STM32_CarStatus\MDK-ARM\STM32_CarStatus.uvproj
+Project File Date:  08/01/2025
 
 <h2>Output:</h2>
+Build target 'STM32_CarStatus'
+compiling main.c...
+linking...
+Program Size: Code=28992 RO-data=1132 RW-data=200 ZI-data=7928  
+FromELF: creating hex file...
+"STM32_CarStatus\STM32_CarStatus.axf" - 0 Errors, 0 Warning(s).

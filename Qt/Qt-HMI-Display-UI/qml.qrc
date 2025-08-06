@@ -31,5 +31,7 @@
         <file>assets/EngineOn.svg</file>
         <file>assets/Add.svg</file>
         <file>assets/Substract.svg</file>
+        <file>assets/displayoff.svg</file>
     </qresource>
 </RCC>
+

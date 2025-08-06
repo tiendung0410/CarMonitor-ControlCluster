@@ -3,12 +3,19 @@
 #include "radialbar.h"
 #include "canreceiver.h"  // thêm dòng này
 #include <QQmlContext>
+#include <QScreen>
+#include <QWindow>
 
 int main(int argc, char *argv[])
 {
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
 #endif
+    
+    // Cấu hình cho BeagleBone với màn hình cảm ứng
+    QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+    QCoreApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
+    
     QGuiApplication app(argc, argv);
 
     QQmlApplicationEngine engine;

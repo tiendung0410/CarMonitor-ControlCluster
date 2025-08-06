@@ -45,6 +45,7 @@ typedef struct {
 typedef struct  {
     uint8_t air_condition_temperature;
     uint8_t speed_limit;
+    uint8_t light_touch_control;
 }controlData_t;
 
 typedef struct {
@@ -211,21 +212,28 @@ void* air_condition_thread(void* arg) {
         if (recv_bytes > 0) {
 
             printf("Received air condition temperature (thread): %d\n", controlData.air_condition_temperature);
-            // Cập nhật biến toàn cục
-            data_transfer.control_data.air_condition_temperature = controlData.air_condition_temperature;
-            if(!thingsboard_fixed_setting)
-            {
-                data_transfer.control_data.speed_limit = controlData.speed_limit;
-            }
-            else
-            {
-                int sent = sendto(unix_fd, &data_transfer, sizeof(DataTransfer_t), 0, 
-                                                (struct sockaddr *)&addr, sizeof(addr));
-                                if (sent < 0) {
-                                    perror("sendto");
-                                } else {
-                                    printf("Sent vehicle status to GUI\n");
-                                }
+            
+            // Chỉ cập nhật control data khi engine đang bật
+            if (data_transfer.vehicle_status.engine_status == 1) {
+                // Cập nhật biến toàn cục
+                data_transfer.vehicle_status.light_status = controlData.light_touch_control;
+                data_transfer.control_data.air_condition_temperature = controlData.air_condition_temperature;
+                if(!thingsboard_fixed_setting)
+                {
+                    data_transfer.control_data.speed_limit = controlData.speed_limit;
+                }
+                else
+                {
+                    int sent = sendto(unix_fd, &data_transfer, sizeof(DataTransfer_t), 0, 
+                                                    (struct sockaddr *)&addr, sizeof(addr));
+                                    if (sent < 0) {
+                                        perror("sendto");
+                                    } else {
+                                        printf("Sent vehicle status to GUI\n");
+                                    }
+                }
+            } else {
+                printf("Engine is OFF - ignoring control data changes\n");
             }
             
             // Gửi qua MQTT
@@ -234,9 +242,13 @@ void* air_condition_thread(void* arg) {
             struct can_frame air_frame;
             memset(&air_frame, 0, sizeof(air_frame));
             air_frame.can_id = AIRCONDITION_SPEEDLIMIT_CAN_ID;
-            air_frame.can_dlc = 2;
+            air_frame.can_dlc = 5;
             air_frame.data[0] = (uint8_t)data_transfer.control_data.air_condition_temperature;
             air_frame.data[1] = (uint8_t)data_transfer.control_data.speed_limit;
+            air_frame.data[2] = (uint8_t)data_transfer.vehicle_status.engine_status;
+            air_frame.data[3] = (uint8_t)data_transfer.vehicle_status.light_status;
+            air_frame.data[4] = (uint8_t)data_transfer.vehicle_status.door_status;
+            
             if (write(sockfd, &air_frame, sizeof(air_frame)) < 0) {
                 perror("CAN write airConditionTemperature (thread)");
             } else {
@@ -345,30 +357,41 @@ void on_message(struct mosquitto *mosq, void *userdata, const struct mosquitto_m
             if (strcmp(method, "setEngineStatus") == 0) {
                 int value = json_object_get_boolean(params_obj);
                 data_transfer.vehicle_status.engine_status = value;
+                if(value == 0)
+                {
+                    data_transfer.vehicle_status.light_status = 0;
+                }
                 publish_telemetry();
                 printf(">> [ENGINE] Set to: %s\n", value ? "ON" : "OFF");
             } else if (strcmp(method, "setHeadLightStatus") == 0) {
                 int value = json_object_get_boolean(params_obj);
-                data_transfer.vehicle_status.light_status = value;
+                if(data_transfer.vehicle_status.engine_status == 1)
+                {
+                    data_transfer.vehicle_status.light_status = value;
+                }
                 publish_telemetry();
                 printf(">> [LIGHT] Set to: %s\n", value ? "ON" : "OFF");
             } else if (strcmp(method, "setAirConditionTemp") == 0) {
                 int value = json_object_get_int(params_obj);
-                data_transfer.control_data.air_condition_temperature = value;
+                // Chỉ cập nhật khi engine đang bật
+                if (data_transfer.vehicle_status.engine_status == 1) {
+                    data_transfer.control_data.air_condition_temperature = value;
+                    printf(">> [A/C TEMP] Set to: %d °C\n", value);
+                } else {
+                    printf(">> [A/C TEMP] Engine is OFF - ignoring temperature change to: %d °C\n", value);
+                }
                 publish_telemetry();
-                printf(">> [A/C TEMP] Set to: %d °C\n", value);
             } else if (strcmp(method, "setSpeedLimit") == 0) {
                 int value = json_object_get_int(params_obj);
-                data_transfer.control_data.speed_limit = value;
+                // Chỉ cập nhật khi engine đang bật
+                if (data_transfer.vehicle_status.engine_status == 1) {
+                    data_transfer.control_data.speed_limit = value;
+                    printf(">> [SPEED LIMIT] Set to: %d km/h\n", value);
+                } else {
+                    printf(">> [SPEED LIMIT] Engine is OFF - ignoring speed limit change to: %d km/h\n", value);
+                }
                 publish_telemetry();
-                printf(">> [SPEED LIMIT] Set to: %d km/h\n", value);
             } else if (strcmp(method, "setDoorStatus") == 0) {
-                int value = json_object_get_int(params_obj);
-                data_transfer.vehicle_status.door_status = value;
-                publish_telemetry();
-                printf(">> [DOOR STATUS] Set to: %s \n", value ? "CLOSED" : "OPEN");
-            }
-            else if (strcmp(method, "setDoorStatus") == 0) {
                 int value = json_object_get_int(params_obj);
                 data_transfer.vehicle_status.door_status = value;
                 publish_telemetry();
@@ -399,13 +422,13 @@ void on_message(struct mosquitto *mosq, void *userdata, const struct mosquitto_m
         printf("Sent airConditionTemperature to CAN (thread): %d\n", data_transfer.control_data.air_condition_temperature);
     }
 
-    // Gửi vehicle status qua Unix socket
+    
     int sent = sendto(unix_fd, &data_transfer, sizeof(DataTransfer_t), 0, (struct sockaddr *)&addr, sizeof(addr));
-    if (sent < 0) {
-        perror("sendto");
-    } else {
-        printf("Sent vehicle status to GUI\n");
-    }
+        if (sent < 0) {
+            perror("sendto");
+        } else {
+            printf("Sent vehicle status to GUI\n");
+        }
     json_object_put(root);
 }
 

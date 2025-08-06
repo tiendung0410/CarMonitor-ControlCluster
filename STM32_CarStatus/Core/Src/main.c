@@ -53,12 +53,13 @@ typedef struct {
 
 typedef enum {
     exceed_speed,
-    low_battery,
     low_tire_pressure,
     door_open,
     seat_belt_open,
-    air_condition_change,
-    speed_limit_change
+    air_condition_increase,
+    air_condition_decrease,
+    speed_limit_increase,
+    speed_limit_decrease,
 } WarningCode_t;
 
 
@@ -71,13 +72,14 @@ typedef enum {
 #define PACKET_DATA_ID 0x025
 #define M_PI 3.14159265358979323846
 
-#define EXCEED_SPEED_SOUND            1
-#define LOW_BATTERY_SOUND             2
-#define LOW_TIRE_PRESSURE_SOUND       3
-#define DOOR_OPEN_SOUND               4
-#define SEAT_BELT_OPEN_SOUND          5
-#define AIR_CONDITION_CHANGE_SOUND    6
-#define SPEED_LIMIT_CHANGE_SOUND      7
+#define EXCEED_SPEED_SOUND                2
+#define LOW_TIRE_PRESSURE_SOUND           5
+#define DOOR_OPEN_SOUND                   1
+#define SEAT_BELT_OPEN_SOUND              6
+#define AIR_CONDITION_INCREASE_SOUND      7
+#define AIR_CONDITION_DECREASE_SOUND      8
+#define SPEED_LIMIT_INCREASE_SOUND        4
+#define SPEED_LIMIT_DECREASE_SOUND        3
 
 #define P_Gear 0
 #define R_Gear 1
@@ -232,10 +234,6 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 	if(huart == &huart1)
   {
     GPS_UART_CallBack(&huart1,&GPS);
-    arrived_time_s +=1;
-    distance_metter += round( ((float)vehicle_data.speed / 3.6f) ); // Convert speed from km/h to m/s); 
-    can_send_flag = 1; // Set flag to send data
-
   } 
 }
 
@@ -632,7 +630,7 @@ static void MX_TIM3_Init(void)
   htim3.Instance = TIM3;
   htim3.Init.Prescaler = 7199;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 999;
+  htim3.Init.Period = 9990;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
@@ -869,14 +867,22 @@ void CAN_Handler(void const * argument)
                 vehicle_data.light_status = RxData[3]; // Update engine status
                 vehicle_data.door_status = RxData[4]; // Update tire pressure status
                 if(RxData[0] != air_condition_temp) {
-                    air_condition_temp = RxData[0];
                     warning_notify_flag = 1; // Set warning flag for air condition change
-                    warning_code = air_condition_change; // Set warning code
+                    if(RxData[0] > air_condition_temp) {
+                        warning_code = air_condition_increase; // Set warning code
+                    } else {
+                        warning_code = air_condition_decrease; // Set warning code
+                    }
+                    air_condition_temp = RxData[0];
                 }
                 if(RxData[1] != speed_limit) {
-                    speed_limit = RxData[1];
                     warning_notify_flag = 1; // Set warning flag for speed limit change
-                    warning_code = speed_limit_change; // Set warning code
+                    if(RxData[1] > speed_limit) {
+                        warning_code = speed_limit_increase; // Set warning code
+                    } else {
+                        warning_code = speed_limit_decrease; // Set warning code
+                    }
+                    speed_limit = RxData[1];
                 }
             }
         }
@@ -896,21 +902,27 @@ void CAN_Handler(void const * argument)
 void Input_Handler(void const * argument)
 {
   /* USER CODE BEGIN Input_Handler */
+  InitVehicleData();
   HAL_ADCEx_Calibration_Start(&hadc1);
   HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_buffer, 4);
-
+  HAL_TIM_Base_Start_IT(&htim3);
   //UART2 receive callback
   GPS_Init(&huart1);
   /* Infinite loop */
   for(;;)
   {
+    // Update GPS data
+    if(GPS.dec_latitude != 0.0f && GPS.dec_longitude != 0.0f) {
+      vehicle_data.gps_lat = GPS.dec_latitude;
+      vehicle_data.gps_lon = GPS.dec_longitude;
+    }
     // Read GPIO inputs
     if(!HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_15))
     {
       can_send_flag=1;
       vehicle_data.engine_status = (vehicle_data.engine_status + 1) % 2; // Toggle engine status
     }
-  
+    
     if(vehicle_data.engine_status == 1) {
       if(!HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_14))
       {
@@ -947,12 +959,12 @@ void Input_Handler(void const * argument)
       }
 
 
-      if(abs(vehicle_data.battery_level *4095 / 100 - adc_buffer[1]) > 30) {
+      if(abs(vehicle_data.battery_level  - adc_buffer[1] * 100 / 4095) > 2) {
           can_send_flag = 1; // Set flag to send vehicle status
           vehicle_data.battery_level = adc_buffer[1] * 100 / 4095; // Assuming 0-4095 ADC range
       }
       
-      if(abs(joystick_x - adc_buffer[2])>100 || abs(joystick_y - adc_buffer[3])>100) {
+      if(abs(joystick_x - adc_buffer[2])>200 || abs(joystick_y - adc_buffer[3])>200) {
           can_send_flag = 1; // Set flag to send vehicle status
 
           joystick_x = adc_buffer[2]; // Joystick X-axis
@@ -982,11 +994,13 @@ void Input_Handler(void const * argument)
           }
           
       }
-      // Update GPS data
-      if(GPS.dec_latitude != 0.0f && GPS.dec_longitude != 0.0f) {
-        vehicle_data.gps_lat = GPS.dec_latitude;
-        vehicle_data.gps_lon = GPS.dec_longitude;
-      }
+      
+    }
+    else
+    {      
+      vehicle_data.light_status = 0;                     
+      vehicle_data.speed = 0;                          
+      vehicle_data.transmission_gear = P_Gear;   
     }
     osDelay(20);
   }
@@ -1027,7 +1041,7 @@ void Control_Handler(void const * argument)
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
   lcd_init(&hlcd, &hi2c1, LCD_ADDR_DEFAULT);// Khởi tạo LCD với địa chỉ mặc định
   DFPLAYER_Init(&mp3, &huart2);                       // Khởi tạo module MP3 DFPlayer
-  DFPLAYER_SetVolume(&mp3, 20);
+  DFPLAYER_SetVolume(&mp3, 100);
   /* Infinite loop */
   for(;;)
   {
@@ -1142,11 +1156,6 @@ void Notify_Handler(void const * argument)
         warning_notify_flag = 1; // Set warning flag for speed limit exceeded
         warning_code = exceed_speed; // Set warning code
       }
-      if(vehicle_data.battery_level < 20)
-      {
-        warning_notify_flag = 1; // Set warning flag for low battery
-        warning_code = low_battery; // Set warning code
-      }
       if(vehicle_data.tire_pressure == 0)
       {
         warning_notify_flag = 1; // Set warning flag for low tire pressure
@@ -1170,39 +1179,42 @@ void Notify_Handler(void const * argument)
       {
         case exceed_speed:
           DFPLAYER_PlayTrack(&mp3,EXCEED_SPEED_SOUND); // Play sound for speed limit exceeded
-          osDelay(2000);
-          DFPLAYER_Stop(&mp3);
-          break;
-        case low_battery:
-          DFPLAYER_PlayTrack(&mp3,LOW_BATTERY_SOUND); // Play sound for low battery
-          osDelay(2000);
+          osDelay(6000);
           DFPLAYER_Stop(&mp3);
           break;
         case low_tire_pressure:
           DFPLAYER_PlayTrack(&mp3,LOW_TIRE_PRESSURE_SOUND); // Play sound for low tire pressure
-          osDelay(2000);
+          osDelay(6000);
           DFPLAYER_Stop(&mp3);
           break;
         case door_open:
           DFPLAYER_PlayTrack(&mp3,DOOR_OPEN_SOUND); // Play sound for door open
-          osDelay(2000);
+          osDelay(6000);
           DFPLAYER_Stop(&mp3);
           break;
         case seat_belt_open:
           DFPLAYER_PlayTrack(&mp3,SEAT_BELT_OPEN_SOUND); // Play sound for seat belt unfastened
-          osDelay(2000);
+          osDelay(6000);
           DFPLAYER_Stop(&mp3);
           break;
-        case air_condition_change:
-          DFPLAYER_PlayTrack(&mp3,AIR_CONDITION_CHANGE_SOUND); // Play sound for air condition change
-          osDelay(2000);
+        case air_condition_increase:
+          DFPLAYER_PlayTrack(&mp3,AIR_CONDITION_INCREASE_SOUND); // Play sound for air condition change
+          osDelay(6000);
           DFPLAYER_Stop(&mp3);
           break;
-        case speed_limit_change:
-          DFPLAYER_PlayTrack(&mp3,SPEED_LIMIT_CHANGE_SOUND); // Play sound for speed limit change
-          osDelay(2000);
+        case air_condition_decrease:
+          DFPLAYER_PlayTrack(&mp3,AIR_CONDITION_DECREASE_SOUND); // Play sound for speed limit change
+          osDelay(6000);
+          DFPLAYER_Stop(&mp3);
+        case speed_limit_increase:
+          DFPLAYER_PlayTrack(&mp3,SPEED_LIMIT_INCREASE_SOUND); // Play sound for speed limit change
+          osDelay(6000);
           DFPLAYER_Stop(&mp3);
           break;
+        case speed_limit_decrease:
+          DFPLAYER_PlayTrack(&mp3,SPEED_LIMIT_DECREASE_SOUND); // Play sound for
+          osDelay(6000);
+          DFPLAYER_Stop(&mp3);
         default:
           break;
       }
@@ -1223,7 +1235,14 @@ void Notify_Handler(void const * argument)
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
   /* USER CODE BEGIN Callback 0 */
-
+  if (htim->Instance == TIM3) {
+    arrived_time_s +=1;
+    distance_metter += round( ((float)vehicle_data.speed / 3.6f) ); // Convert speed from km/h to m/s); 
+    if(arrived_time_s % 2 ==0)
+    {
+      can_send_flag = 1; // Set flag to send data
+    }
+  }
   /* USER CODE END Callback 0 */
   if (htim->Instance == TIM4) {
     HAL_IncTick();

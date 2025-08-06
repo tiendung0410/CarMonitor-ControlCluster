@@ -30,6 +30,7 @@ struct __attribute__((packed)) VehicleStatus {
 struct controlData_t {
     uint8_t air_condition_temperature;
     uint8_t speed_limit;
+    uint8_t light_touch_control;
 };
 
 struct DataTransfer_t {
@@ -54,6 +55,7 @@ class CanReceiver : public QObject {
     Q_PROPERTY(float gps_lon READ gpsLon NOTIFY dataUpdated)
     Q_PROPERTY(int air_condition_temperature READ airConditionTemperature NOTIFY dataUpdated)
     Q_PROPERTY(int speed_limit READ speedLimit NOTIFY dataUpdated)
+
 public:
     explicit CanReceiver(QObject *parent = nullptr);
     ~CanReceiver();
@@ -78,11 +80,13 @@ public slots:
     void airConditionTemperatureSubtract() { m_airConditionTemperature--; emit dataUpdated(); }
     void speedLimitAdd() { m_speedLimit++; emit dataUpdated(); }
     void speedLimitSubtract() { m_speedLimit--; emit dataUpdated(); }
+    void setLightStatus(int status) { m_lightStatus = status; emit dataUpdated(); }
     void UpdateData() 
-    { 
+    {
         controlData_t controlData;
         controlData.air_condition_temperature = m_airConditionTemperature;
         controlData.speed_limit = m_speedLimit;
+        controlData.light_touch_control = m_lightStatus;
         sendto(m_sockfd, &controlData, sizeof(controlData_t), 0, (struct sockaddr *)&m_canHandlerProcessAddr, sizeof(m_canHandlerProcessAddr));
     }
 signals:

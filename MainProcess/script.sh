@@ -21,4 +21,6 @@ ip route add default via 192.168.7.1 dev usb0
 echo "nameserver 8.8.8.8" > /etc/resolv.conf
 
 export QT_QPA_PLATFORM=linuxfb
+export QT_QPA_EVDEV_TOUCHSCREEN_PARAMETERS="/dev/input/event1"
+
 /root/Qt/Qt-HMI-Display-UI/Car_1 &
