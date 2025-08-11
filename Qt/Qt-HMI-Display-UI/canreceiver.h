@@ -18,10 +18,10 @@ struct __attribute__((packed)) VehicleStatus {
     uint8_t battery_level;
     uint8_t speed;
     uint8_t arrived_distance;
-    uint8_t remain_distance;
+    uint8_t total_distance;
     uint8_t drived_time;
     uint8_t transmission_gear;
-    uint8_t reserved1;
+    uint8_t speech_enable;
     uint8_t reserved2;
     float gps_lat;
     float gps_lon;
@@ -48,12 +48,13 @@ class CanReceiver : public QObject {
     Q_PROPERTY(int seat_belt_status READ seatBeltStatus NOTIFY dataUpdated)
     Q_PROPERTY(int battery_level READ batteryLevel NOTIFY dataUpdated)
     Q_PROPERTY(int arrived_distance READ arrivedDistance NOTIFY dataUpdated)
-    Q_PROPERTY(int remain_distance READ remainDistance NOTIFY dataUpdated)
+    Q_PROPERTY(int total_distance READ totalDistance NOTIFY dataUpdated)
     Q_PROPERTY(int drived_time READ drivedTime NOTIFY dataUpdated)
     Q_PROPERTY(int transmission_gear READ transmissionGear NOTIFY dataUpdated)
     Q_PROPERTY(float gps_lat READ gpsLat NOTIFY dataUpdated)
     Q_PROPERTY(float gps_lon READ gpsLon NOTIFY dataUpdated)
     Q_PROPERTY(int air_condition_temperature READ airConditionTemperature NOTIFY dataUpdated)
+    Q_PROPERTY(int speech_enable READ speechEnable NOTIFY dataUpdated)
     Q_PROPERTY(int speed_limit READ speedLimit NOTIFY dataUpdated)
 
 public:
@@ -67,14 +68,14 @@ public:
     int seatBeltStatus() const { return m_seatBeltStatus; }
     int batteryLevel() const { return m_batteryLevel; }
     int arrivedDistance() const { return m_arrivedDistance; }
-    int remainDistance() const { return m_remainDistance; }
+    int totalDistance() const { return m_totalDistance; }
     int drivedTime() const { return m_drivedTime; }
     int transmissionGear() const { return m_transmissionGear; }
     float gpsLat() const { return m_gpsLat; }
     float gpsLon() const { return m_gpsLon; }
     int airConditionTemperature() const { return m_airConditionTemperature; }
     int speedLimit() const { return m_speedLimit; }
-    
+    int speechEnable() const { return m_speechEnable; }
 public slots:
     void airConditionTemperatureAdd() { m_airConditionTemperature++; emit dataUpdated(); }
     void airConditionTemperatureSubtract() { m_airConditionTemperature--; emit dataUpdated(); }
@@ -107,13 +108,14 @@ private:
     int m_seatBeltStatus;
     int m_batteryLevel;
     int m_arrivedDistance;
-    int m_remainDistance;
+    int m_totalDistance;
     int m_drivedTime;
     int m_transmissionGear;
+    int m_speechEnable; 
     float m_gpsLat;
     float m_gpsLon;
     int m_airConditionTemperature;
-    int m_speedLimit; 
+    int m_speedLimit;
 };
 
 #endif // CANRECEIVER_H

@@ -1138,11 +1138,6 @@
               <FileType>1</FileType>
               <FilePath>..\Lib\LiquidCrystal_I2C.c</FilePath>
             </File>
-            <File>
-              <FileName>DFPLAYER.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Lib\DFPLAYER.c</FilePath>
-            </File>
           </Files>
         </Group>
       </Groups>

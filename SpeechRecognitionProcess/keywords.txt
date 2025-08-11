@@ -1,0 +1,10 @@
+engine on/1e-40/
+engine off/1e-35/
+low beam on/1e-40/
+high beam on/1e-40/
+mist beam on/1e-45/
+light off/1e-20/
+open door/1e-40/
+close door/1e-40/
+increase air condition/1e-40/
+reduce air condition/1e-40/
