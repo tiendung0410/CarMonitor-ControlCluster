@@ -105,7 +105,7 @@ ApplicationWindow {
                     leftMargin: 180
                     left: parent.left
                 }
-                source: (canReceiver.engine_status == 1) ? "qrc:/assets/EngineOn.svg" : "qrc:/assets/EngineOff.svg"
+                source: (canReceiver.speech_enable == 1) ? "qrc:/assets/speech_enable.svg" : "qrc:/assets/speech_disable.svg"
                 Behavior on indicator { NumberAnimation { duration: 300 }}
                 MouseArea{
                     anchors.fill: parent
@@ -754,7 +754,34 @@ ApplicationWindow {
                 Image {
                     width: 20
                     height:20
-                    source: "qrc:/assets/road.svg"
+                    source: "qrc:/assets/total_distance.svg"
+                }
+
+                ColumnLayout{
+                    Label{
+                        text: canReceiver.total_distance.toFixed(0) + "KM"
+                        font.pixelSize: 25
+                        font.family: "Inter"
+                        font.bold: Font.Normal
+                        opacity: 0.8
+                        color: "#FFFFFF"
+                    }
+                    Label{
+                        text: "Total Distance"
+                        font.pixelSize: 18
+                        font.family: "Inter"
+                        font.bold: Font.Normal
+                        opacity: 0.8
+                        color: "#FFFFFF"
+                    }
+                }
+            }
+            RowLayout{
+                spacing: 20
+                Image {
+                    width: 16
+                    height: 16
+                    source: "qrc:/assets/drived_distance.svg"
                 }
 
                 ColumnLayout{
@@ -768,33 +795,6 @@ ApplicationWindow {
                     }
                     Label{
                         text: "Drived Distance"
-                        font.pixelSize: 18
-                        font.family: "Inter"
-                        font.bold: Font.Normal
-                        opacity: 0.8
-                        color: "#FFFFFF"
-                    }
-                }
-            }
-            RowLayout{
-                spacing: 20
-                Image {
-                    width: 20
-                    height: 20
-                    source: "qrc:/assets/fuel.svg"
-                }
-
-                ColumnLayout{
-                    Label{
-                        text: canReceiver.remain_distance.toFixed(0) + "KM"
-                        font.pixelSize: 25
-                        font.family: "Inter"
-                        font.bold: Font.Normal
-                        opacity: 0.8
-                        color: "#FFFFFF"
-                    }
-                    Label{
-                        text: "Remain Distance"
                         font.pixelSize: 18
                         font.family: "Inter"
                         font.bold: Font.Normal

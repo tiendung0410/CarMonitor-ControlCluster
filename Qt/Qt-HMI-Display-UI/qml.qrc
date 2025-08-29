@@ -12,7 +12,6 @@
         <file>assets/FogLightOff.svg</file>
         <file>assets/TirePressOK.svg</file>
         <file>assets/fuel.svg</file>
-        <file>assets/road.svg</file>
         <file>assets/speedometer.svg</file>
         <file>Gauge.qml</file>
         <file>assets/background.png</file>
@@ -27,11 +26,13 @@
         <file>assets/SeatBeltOn.svg</file>
         <file>assets/TirePressNotOK.svg</file>
         <file>assets/DoorClosed.svg</file>
-        <file>assets/EngineOff.svg</file>
-        <file>assets/EngineOn.svg</file>
         <file>assets/Add.svg</file>
         <file>assets/Substract.svg</file>
         <file>assets/displayoff.svg</file>
+        <file>assets/speech_disable.svg</file>
+        <file>assets/speech_enable.svg</file>
+        <file>assets/total_distance.svg</file>
+        <file>assets/drived_distance.svg</file>
     </qresource>
 </RCC>
 
