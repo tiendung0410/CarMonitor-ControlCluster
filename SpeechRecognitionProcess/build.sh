@@ -1,3 +1,5 @@
-gcc -O2 -o speechRecognition speechRecognition.c \
-  $(pkg-config --cflags --libs pocketsphinx sphinxbase) \
-  -lasound
+gcc speechRecognition.c -o speechRecognition \
+     -I/usr/include \
+     -I/usr/include/pocketsphinx \
+     -I/usr/include/sphinxbase \
+     -lpocketsphinx -lsphinxbase -lsphinxad -lasound
