@@ -37,11 +37,12 @@ ip -details link show $CAN_IFACE
 
 export QT_QPA_PLATFORM=linuxfb
 export QT_QPA_EVDEV_TOUCHSCREEN_PARAMETERS="/dev/input/event1"
+export QT_QPA_FONTDIR="/usr/share/fonts/truetype"
 
-/root/Qt/Qt-HMI-Display-UI/Car_1 &
-/root/WarningSound/WarningProcess &
-/root/TelegramNotify/TelegramNotifyProcess &
-/root/MainProcess/GatewayProcess &
-/root/SpeechRecognitionProcess/speechRecognition &
+$(pwd)/Qt/Qt-HMI-Display-UI/Car_1 &
+$(pwd)/WarningSound/WarningProcess &
+$(pwd)/TelegramNotify/TelegramNotifyProcess &
+$(pwd)/MainProcess/GatewayProcess &
+$(pwd)/SpeechRecognitionProcess/speechRecognition &
 
 wait
