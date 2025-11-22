@@ -199,7 +199,7 @@ void* warning_worker(void* arg) {
             if (wav_file) {
                 printf("[WarningWorker] Play: %s (prio=%u)\n", wav_file, prio);
                 char cmd[256];
-                snprintf(cmd, sizeof(cmd), "aplay -D hw:0,0 '%s'", wav_file);
+                snprintf(cmd, sizeof(cmd), "aplay -D hw:1,0 '%s'", wav_file);
                 system(cmd); // block đúng bằng thời lượng file wav (~5s)
             }
             warning_table[msg.code-1].pending=0;
