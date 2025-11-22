@@ -56,10 +56,15 @@ typedef struct {
 DataTransfer_t data_transfer;
 uint8_t thingsboard_fixed_setting;
 
+int qt_send_flag=0;
+
+int stm32_can_send_flag=0;
 void reset_packet_receiver();
 void process_header_packet(struct can_frame *frame);
 int process_data_packet(struct can_frame *frame);
+void stm32_sync_control();
 
+int mqtt_send_flag=0;
 void publish_telemetry();
 void on_connect(struct mosquitto *mosq, void *userdata, int rc);
 void on_message(struct mosquitto *mosq, void *userdata, const struct mosquitto_message *msg);
@@ -82,6 +87,7 @@ typedef struct {
 } PacketReceiver;
 
 PacketReceiver packet_receiver;
+
 
 // Hàm khởi tạo CAN socket
 int setup_can_socket(const char* interface) {
@@ -177,6 +183,26 @@ int process_data_packet(struct can_frame *frame) {
     
     return 0;
 }
+
+void stm32_sync_control()
+{
+    // Gửi dữ liệu điều khiển qua CAN
+    struct can_frame air_frame;
+    memset(&air_frame, 0, sizeof(air_frame));
+    air_frame.can_id = AIRCONDITION_SPEEDLIMIT_CAN_ID;
+    air_frame.can_dlc = 5;
+    air_frame.data[0] = (uint8_t)data_transfer.control_data.air_condition_temperature;
+    air_frame.data[1] = (uint8_t)data_transfer.control_data.speed_limit;
+    air_frame.data[2] = (uint8_t)data_transfer.vehicle_status.engine_status;
+    air_frame.data[3] = (uint8_t)data_transfer.vehicle_status.light_status;
+    air_frame.data[4] = (uint8_t)data_transfer.vehicle_status.door_status;
+    if (write(sockfd, &air_frame, sizeof(air_frame)) < 0) {
+        perror("CAN write airConditionTemperature (thread)");
+    } else {
+        printf("Sent airConditionTemperature to CAN (thread): %d\n", data_transfer.control_data.air_condition_temperature);
+    }
+}
+
 //-------------------------------------------------------------END CAN HANDLER-------------------------------------------------------------
 
 
@@ -188,7 +214,7 @@ int process_data_packet(struct can_frame *frame) {
 #define TEMP_CLOUD_INC          0x03
 #define TEMP_CLOUD_DEC          0x04
 #define FIXED_CHANGE            0x05
-
+    
 int warning_fd; // socket gửi cảnh báo
 struct sockaddr_un warning_addr;
 
@@ -224,8 +250,21 @@ void* notify_sender_thread(void* arg) {
 // --------------------------------------------------------------QT HANDLER--------------------------------------------------------------
 
 
-void* air_condition_thread(void* arg) {
+void* qt_handler_thread(void* arg) {
     while (1) {
+
+        if(qt_send_flag)
+        {
+            int sent = sendto(unix_fd, &data_transfer, sizeof(DataTransfer_t), 0, 
+                                        (struct sockaddr *)&addr, sizeof(addr));
+            if (sent < 0) {
+                perror("sendto");
+            } else {
+                printf("Sent vehicle status to GUI\n");
+            }
+            qt_send_flag=0;
+        }
+
         controlData_t controlData;
         ssize_t recv_bytes = recvfrom(unix_fd, &controlData, sizeof(controlData_t), 0, NULL, NULL);
         if (recv_bytes > 0) {
@@ -255,24 +294,10 @@ void* air_condition_thread(void* arg) {
                 }
             } 
             
-            // Gửi qua MQTT
-            publish_telemetry();
-            // Gửi qua CAN
-            struct can_frame air_frame;
-            memset(&air_frame, 0, sizeof(air_frame));
-            air_frame.can_id = AIRCONDITION_SPEEDLIMIT_CAN_ID;
-            air_frame.can_dlc = 5;
-            air_frame.data[0] = (uint8_t)data_transfer.control_data.air_condition_temperature;
-            air_frame.data[1] = (uint8_t)data_transfer.control_data.speed_limit;
-            air_frame.data[2] = (uint8_t)data_transfer.vehicle_status.engine_status;
-            air_frame.data[3] = (uint8_t)data_transfer.vehicle_status.light_status;
-            air_frame.data[4] = (uint8_t)data_transfer.vehicle_status.door_status;
-            
-            if (write(sockfd, &air_frame, sizeof(air_frame)) < 0) {
-                perror("CAN write airConditionTemperature (thread)");
-            } else {
-                printf("Sent airConditionTemperature to CAN (thread): %d\n", controlData.air_condition_temperature);
-            }
+            // Enable MQTT send flag
+            mqtt_send_flag=1;
+            // Enable STM32 CAN send flag
+            stm32_can_send_flag=1;
         }
     }
     return NULL;
@@ -440,34 +465,27 @@ void on_message(struct mosquitto *mosq, void *userdata, const struct mosquitto_m
             }
         }
     }
+    // Enable STM32 CAN send flag
+    stm32_can_send_flag=1;
+    qt_send_flag=1;
 
-    // Gửi dữ liệu điều khiển qua CAN
-    struct can_frame air_frame;
-    memset(&air_frame, 0, sizeof(air_frame));
-    air_frame.can_id = AIRCONDITION_SPEEDLIMIT_CAN_ID;
-    air_frame.can_dlc = 5;
-    air_frame.data[0] = (uint8_t)data_transfer.control_data.air_condition_temperature;
-    air_frame.data[1] = (uint8_t)data_transfer.control_data.speed_limit;
-    air_frame.data[2] = (uint8_t)data_transfer.vehicle_status.engine_status;
-    air_frame.data[3] = (uint8_t)data_transfer.vehicle_status.light_status;
-    air_frame.data[4] = (uint8_t)data_transfer.vehicle_status.door_status;
-    if (write(sockfd, &air_frame, sizeof(air_frame)) < 0) {
-        perror("CAN write airConditionTemperature (thread)");
-    } else {
-        printf("Sent airConditionTemperature to CAN (thread): %d\n", data_transfer.control_data.air_condition_temperature);
-    }
-
-    
-    int sent = sendto(unix_fd, &data_transfer, sizeof(DataTransfer_t), 0, (struct sockaddr *)&addr, sizeof(addr));
-        if (sent < 0) {
-            perror("sendto");
-        } else {
-            printf("Sent vehicle status to GUI\n");
-        }
     json_object_put(root);
 }
 
-
+void * mqtt_send_thread(void* arg)
+{
+    (void)arg;
+    while(1)
+    {
+        if(mqtt_send_flag)
+        {
+            publish_telemetry();
+            mqtt_send_flag=0;
+        }
+        usleep(300000); // 0.3s
+    }
+    return NULL;
+}
 
 //----------------------------------------------------------------END MQTT HANDLER--------------------------------------------------------------
 
@@ -529,22 +547,9 @@ static void apply_cmd(uint8_t c) {
     }
 
     // Sau khi áp dụng lệnh thì publish MQTT, gửi CAN, gửi GUI
-    publish_telemetry();
-
-    struct can_frame air_frame = {0};
-    air_frame.can_id  = AIRCONDITION_SPEEDLIMIT_CAN_ID;
-    air_frame.can_dlc = 5;
-    air_frame.data[0] = (uint8_t)data_transfer.control_data.air_condition_temperature;
-    air_frame.data[1] = (uint8_t)data_transfer.control_data.speed_limit;
-    air_frame.data[2] = (uint8_t)data_transfer.vehicle_status.engine_status;
-    air_frame.data[3] = (uint8_t)data_transfer.vehicle_status.light_status;
-    air_frame.data[4] = (uint8_t)data_transfer.vehicle_status.door_status;
-    if (write(sockfd, &air_frame, sizeof(air_frame)) < 0)
-        perror("CAN write cmd");
-
-    int sent = sendto(unix_fd, &data_transfer, sizeof(DataTransfer_t), 0,
-                      (struct sockaddr *)&addr, sizeof(addr));
-    if (sent < 0) perror("sendto GUI");
+    mqtt_send_flag=1;
+    stm32_can_send_flag=1;
+    qt_send_flag=1;
 }
 
 static void* sr_cmd_thread(void* arg) {
@@ -609,7 +614,7 @@ int main(int argc, char *argv[]) {
     bind(unix_fd, (struct sockaddr *)&test_addr, sizeof(test_addr));
 
     pthread_t tid;
-    pthread_create(&tid, NULL, air_condition_thread, NULL);
+    pthread_create(&tid, NULL, qt_handler_thread, NULL);
     data_transfer.control_data.air_condition_temperature = 25; // Giá trị mặc định
     data_transfer.control_data.speed_limit = 80; // Giá trị mặc định
 
@@ -666,14 +671,24 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Unable to connect to broker\n");
         return EXIT_FAILURE;
     }
-
     // Start loop in a background thread
     mosquitto_loop_start(mosq);
+    //Thread to handle mqtt sending
+    pthread_t mqtt_thread;
+    pthread_create(&mqtt_thread, NULL, mqtt_send_thread, NULL);
+    
+
     //-----------------------------------------Kết thúc khởi tạo--------------------------------
 
 
     //------------------------------------ Vòng lặp chính để nhận dữ liệu------------------------------------
     while (1) {
+            if(stm32_can_send_flag)
+            {
+                stm32_sync_control();
+                stm32_can_send_flag=0;
+            }
+
             ssize_t nbytes = read(sockfd, &frame, sizeof(struct can_frame));
             
             if (nbytes < 0) {
@@ -702,15 +717,9 @@ int main(int argc, char *argv[]) {
                                 // Chuyển đổi dữ liệu nhận được thành VehicleStatus
                                 memcpy(&data_transfer.vehicle_status, packet_receiver.data_buffer, sizeof(VehicleStatus));
                                 // Gửi vehicle status qua Unix socket
-                                int sent = sendto(unix_fd, &data_transfer, sizeof(DataTransfer_t), 0, 
-                                                (struct sockaddr *)&addr, sizeof(addr));
-                                if (sent < 0) {
-                                    perror("sendto");
-                                } else {
-                                    printf("Sent vehicle status to GUI\n");
-                                }
+                                qt_send_flag=1;
                                 // Gửi qua MQTT
-                                publish_telemetry();
+                                mqtt_send_flag=1;
                             }
                             
                             // Reset để chuẩn bị cho message tiếp theo
