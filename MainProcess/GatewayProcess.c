@@ -573,7 +573,7 @@ int main(int argc, char *argv[]) {
     //--------------------------------Khoi tao CAN Socket--------------------------------
     sleep(2); // Đợi child process khởi động
     struct can_frame frame;
-    const char *interface = "can1";
+    const char *interface = "can0";
     
     if (argc > 1) {
         interface = argv[1];

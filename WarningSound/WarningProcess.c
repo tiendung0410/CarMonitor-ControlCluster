@@ -61,15 +61,15 @@ typedef struct {
 } warning_msg_t;
 
 // ----------- Đường dẫn file .wav và priority từng loại -----------
-#define WAV_DOOR             "/root/WarningSound/Door.wav"
-#define WAV_SEATBELT         "/root/WarningSound/SeatBelt.wav"
-#define WAV_TEMP_INC         "/root/WarningSound/Temp_Inc.wav"
-#define WAV_TEMP_DEC         "/root/WarningSound/Temp_Dec.wav"
-#define WAV_TIRE_PRESSURE    "/root/WarningSound/TirePressure.wav"
-#define WAV_SPEED_EXCEED     "/root/WarningSound/speed_exceed.wav"
-#define WAV_SPEEDLIMIT_INC   "/root/WarningSound/speedlimit_inc.wav"
-#define WAV_SPEEDLIMIT_DEC   "/root/WarningSound/speedlimit_dec.wav"
-#define WAV_FIXED_CHANGE     "/root/WarningSound/Fixed_change.wav"
+#define WAV_DOOR             "/home/root/WarningSound/Door.wav"
+#define WAV_SEATBELT         "/home/root/WarningSound/SeatBelt.wav"
+#define WAV_TEMP_INC         "/home/root/WarningSound/Temp_Inc.wav"
+#define WAV_TEMP_DEC         "/home/root/WarningSound/Temp_Dec.wav"
+#define WAV_TIRE_PRESSURE    "/home/root/WarningSound/TirePressure.wav"
+#define WAV_SPEED_EXCEED     "/home/root/WarningSound/speed_exceed.wav"
+#define WAV_SPEEDLIMIT_INC   "/home/root/WarningSound/speedlimit_inc.wav"
+#define WAV_SPEEDLIMIT_DEC   "/home/root/WarningSound/speedlimit_dec.wav"
+#define WAV_FIXED_CHANGE     "/home/root/WarningSound/Fixed_change.wav"
 
 #define DOOR_PRIO               3
 #define SEATBELT_PRIO           3
